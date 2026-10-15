@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
 )
 
-# Inisialisasi Database Sementara di Session State (Bisa diganti database/csv asli)
+# Inisialisasi Database Sementara di Session State
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = pd.DataFrame(
       columns=[
@@ -53,7 +53,6 @@ if menu == "📋 Daftar Konten & Jadwal":
         " Konten Baru**."
     )
   else:
-    # Filter berdasarkan status atau platform
     col_f1, col_f2 = st.columns(2)
     with col_f1:
       filter_status = st.selectbox(
@@ -70,7 +69,6 @@ if menu == "📋 Daftar Konten & Jadwal":
     if filter_platform != "Semua":
       filtered_df = filtered_df[filtered_df["Platform"] == filter_platform]
 
-    # Tampilkan Data Table
     for index, row in filtered_df.iterrows():
       with st.container():
         st.markdown(f"### 📌 {row['Judul Konten']}")
@@ -87,9 +85,8 @@ if menu == "📋 Daftar Konten & Jadwal":
         if row["Catatan"]:
           st.caption(f"Catatan: {row['Catatan']}")
 
-        # Tombol aksi cepat ubah status
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 4])
-        if col_btn1.button("✅ Tandai Posted", key=f"post_{row['ID']}" ):
+        if col_btn1.button("✅ Tandai Posted", key=f"post_{row['ID']}"):
           st.session_state["content_db"].loc[
               st.session_state["content_db"]["ID"] == row["ID"], "Status"
           ] = "Posted"
@@ -153,7 +150,6 @@ elif menu == "➕ Tambah Konten Baru":
             "Catatan": catatan,
         }
 
-        # Masukkan ke DataFrame
         st.session_state["content_db"] = pd.concat(
             [
                 st.session_state["content_db"],
@@ -180,7 +176,6 @@ elif menu == "⏰ Reminder & Notifikasi (H-2 Jam)":
   if df.empty:
     st.info("Belum ada data konten.")
   else:
-    # Filter yang statusnya masih 'Scheduled'
     scheduled_df = df[df["Status"] == "Scheduled"].copy()
 
     if scheduled_df.empty:
@@ -196,27 +191,25 @@ elif menu == "⏰ Reminder & Notifikasi (H-2 Jam)":
         selisih_waktu = waktu_jadwal - waktu_sekarang
         sisa_jam = selisih_waktu.total_seconds() / 3600
 
-        # Jika sisa waktu <= 2 jam (termasuk jika sudah lewat waktu jadwalnya)
         if sisa_jam <= 2:
           ada_alert = True
+          # PERBAIKAN: Menggunakan tanda kutip ganda di luar atau kutip satu di dalam dict
+          judul_k = row["Judul Content"] if "Judul Content" in row else row["Judul Konten"]
           st.error(
-              f"🚨 **PERINGATAN UPLOAD DEKAT!** Konten **'{row['Judul"
-              f" Konten']}'** ({row['Tipe Konten']}) dijadwalkan tayang pada"
-              f" **{row['Jadwal Upload']}**!"
+              f"🚨 **PERINGATAN UPLOAD DEKAT!** Konten **'{judul_k}'**"
+              f" ({row['Tipe Konten']}) dijadwalkan tayang pada **{row['Jadwal Upload']}**!"
           )
           st.write(
-              f"🔗 [Akses File Google Drive"
-              f" Disini]({row['Link Google Drive']})"
+              f"🔗 [Akses File Google Drive Disini]({row['Link Google Drive']})"
           )
 
-          # Tombol Kirim WhatsApp Reminder
           nomor_tujuan = st.text_input(
-              f"Nomor WhatsApp Admin (awali 62):",
+              "Nomor WhatsApp Admin (awali 62):",
               value="6281234567890",
               key=f"wa_{row['ID']}",
           )
           pesan_wa = (
-              f"Halo! Reminder nih, konten sosial media *{row['Judul Konten']}*"
+              f"Halo! Reminder nih, konten sosial media *{judul_k}*"
               f" ({row['Tipe Konten']}) harus naik ke {row['Platform']} pada"
               f" jam {row['Jadwal Upload']}. Jangan lupa cek asetnya ya:"
               f" {row['Link Google Drive']}"
