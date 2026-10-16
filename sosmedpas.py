@@ -25,8 +25,8 @@ if "content_db" not in st.session_state:
 
 st.title("📱 Social Media Content Planner & Scheduler")
 st.markdown(
-    "Kelola jadwal postingan Instagram Feed & Story, simpan link aset Google"
-    " Drive, dan pantau pengingat upload."
+    "Kelola jadwal postingan Instagram, simpan link aset Google Drive, dan"
+    " pantau pengingat upload."
 )
 
 # Sidebar untuk Navigasi Menu
@@ -60,7 +60,7 @@ if menu == "📋 Daftar Konten & Jadwal":
       )
     with col_f2:
       filter_platform = st.selectbox(
-          "Filter Platform", ["Semua", "Instagram Feed", "Instagram Story"]
+          "Filter Platform", ["Semua", "Instagram", "TikTok", "YouTube", "Facebook"]
       )
 
     filtered_df = df.copy()
@@ -74,7 +74,14 @@ if menu == "📋 Daftar Konten & Jadwal":
         st.markdown(f"### 📌 {row['Judul Konten']}")
         c1, c2, c3, c4 = st.columns(4)
         c1.write(f"**Platform:** {row['Platform']}")
-        c2.write(f"**Tipe:** {row['Tipe Konten']}")
+        
+        # Karena Tipe Konten sekarang berupa list (banyak), kita gabungkan jadi teks koma
+        tipe_str = (
+            ", ".join(row["Tipe Konten"])
+            if isinstance(row["Tipe Konten"], list)
+            else row["Tipe Konten"]
+        )
+        c2.write(f"**Tipe:** {tipe_str}")
         c3.write(f"**Jadwal:** {row['Jadwal Upload']}")
         c4.write(f"**Status:** {row['Status']}")
 
@@ -109,10 +116,11 @@ elif menu == "➕ Tambah Konten Baru":
     col1, col2 = st.columns(2)
     with col1:
       platform = st.selectbox(
-          "Platform", ["Instagram", "TikTok", "YouTube", "Facebook"]
+          "Platform Utama", ["Instagram", "TikTok", "YouTube", "Facebook"]
       )
-      tipe_konten = st.selectbox(
-          "Tipe Konten",
+      # DIUBAH MENJADI MULTISELECT (BISA PILIH LEBIH DARI SATU)
+      tipe_konten = st.multiselect(
+          "Tipe Konten (Bisa pilih lebih dari satu)",
           [
               "IG Feed",
               "IG Story",
@@ -135,7 +143,7 @@ elif menu == "➕ Tambah Konten Baru":
     submit_button = st.form_submit_button("Simpan Jadwal Konten")
 
     if submit_button:
-      if judul and link_gdrive:
+      if judul and link_gdrive and tipe_konten:
         waktu_gabung = datetime.combine(tanggal_upload, jam_upload)
         new_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
@@ -143,7 +151,7 @@ elif menu == "➕ Tambah Konten Baru":
             "ID": new_id,
             "Judul Konten": judul,
             "Platform": platform,
-            "Tipe Konten": tipe_konten,
+            "Tipe Konten": tipe_konten,  # Menyimpan list pilihan
             "Jadwal Upload": waktu_gabung.strftime("%Y-%m-%d %H:%M"),
             "Link Google Drive": link_gdrive,
             "Status": status,
@@ -159,7 +167,10 @@ elif menu == "➕ Tambah Konten Baru":
         )
         st.success("Berhasil! Konten baru berhasil ditambahkan ke jadwal.")
       else:
-        st.warning("Mohon isi minimal Judul Konten dan Link Google Drive.")
+        st.warning(
+            "Mohon isi Judul, Link Google Drive, dan minimal pilih satu Tipe"
+            " Konten."
+        )
 
 # ==========================================
 # MENU 3: REMINDER & NOTIFIKASI (H-2 JAM)
@@ -193,11 +204,21 @@ elif menu == "⏰ Reminder & Notifikasi (H-2 Jam)":
 
         if sisa_jam <= 2:
           ada_alert = True
-          # PERBAIKAN: Menggunakan tanda kutip ganda di luar atau kutip satu di dalam dict
-          judul_k = row["Judul Content"] if "Judul Content" in row else row["Judul Konten"]
+          judul_k = (
+              row["Judul Content"]
+              if "Judul Content" in row
+              else row["Judul Konten"]
+          )
+          tipe_str = (
+              ", ".join(row["Tipe Konten"])
+              if isinstance(row["Tipe Konten"], list)
+              else row["Tipe Konten"]
+          )
+
           st.error(
               f"🚨 **PERINGATAN UPLOAD DEKAT!** Konten **'{judul_k}'**"
-              f" ({row['Tipe Konten']}) dijadwalkan tayang pada **{row['Jadwal Upload']}**!"
+              f" (Format: **{tipe_str}**) dijadwalkan tayang pada"
+              f" **{row['Jadwal Upload']}**!"
           )
           st.write(
               f"🔗 [Akses File Google Drive Disini]({row['Link Google Drive']})"
@@ -210,8 +231,8 @@ elif menu == "⏰ Reminder & Notifikasi (H-2 Jam)":
           )
           pesan_wa = (
               f"Halo! Reminder nih, konten sosial media *{judul_k}*"
-              f" ({row['Tipe Konten']}) harus naik ke {row['Platform']} pada"
-              f" jam {row['Jadwal Upload']}. Jangan lupa cek asetnya ya:"
+              f" dengan format ({tipe_str}) harus naik ke {row['Platform']}"
+              f" pada jam {row['Jadwal Upload']}. Jangan lupa cek asetnya ya:"
               f" {row['Link Google Drive']}"
           )
           encoded_pesan = urllib.parse.quote(pesan_wa)
