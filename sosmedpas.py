@@ -94,7 +94,7 @@ if menu == "📋 Daftar Konten & Jadwal":
           lambda x: ", ".join(x) if isinstance(x, list) else x
       )
 
-      # Tampilkan tabel interaktif dengan Link Google Drive yang bisa langsung diklik
+      # Tampilkan tabel interaktif utama
       st.dataframe(
           display_df[
               [
@@ -119,39 +119,44 @@ if menu == "📋 Daftar Konten & Jadwal":
           hide_index=True,
       )
 
-      st.markdown("### ⚙️ Kelola / Ubah Status Konten")
+      st.markdown("### ⚙️ Aksi Cepat Kelola Konten")
+      st.markdown(
+          "Ubah status menjadi 'Posted' atau hapus konten langsung dari daftar"
+          " di bawah:"
+      )
+
+      # Tampilan list per baris dengan tombol aksi di sebelah kanan
       for index, row in filtered_df.iterrows():
         tipe_str = (
             ", ".join(row["Tipe Konten"])
             if isinstance(row["Tipe Konten"], list)
             else row["Tipe Konten"]
         )
-        with st.expander(
-            f"📌 [{row['Approval']}] {row['Judul Konten']} ({row['Platform']} -"
-            f" {tipe_str})"
-        ):
-          st.write(f"**Jadwal:** {row['Jadwal Upload']}")
-          st.write(f"**Status Approval:** {row['Approval']}")
-          if row["Link Google Drive"]:
-            st.markdown(
-                f"🔗 [Buka Aset di Google Drive]({row['Link Google Drive']})"
-            )
-          if row["Catatan"]:
-            st.write(f"**Catatan:** {row['Catatan']}")
 
-          c_b1, c_b2, c_b3 = st.columns([1, 1, 3])
-          if c_b1.button("✅ Tandai Posted", key=f"post_{row['ID']}"):
+        col_info, col_btn1, col_btn2 = st.columns([6, 1.2, 1.2])
+
+        with col_info:
+          st.markdown(
+              f"**📌 {row['Judul Konten']}** | *{row['Platform']} ({tipe_str})*"
+              f" | ⏰ {row['Jadwal Upload']} | Status: `{row['Status']}` |"
+              f" Approval: `{row['Approval']}`"
+          )
+
+        with col_btn1:
+          if st.button("✅ Post", key=f"post_{row['ID']}"):
             st.session_state["content_db"].loc[
                 st.session_state["content_db"]["ID"] == row["ID"], "Status"
             ] = "Posted"
             st.rerun()
-          if c_b2.button("🗑️ Hapus", key=f"del_{row['ID']}"):
+
+        with col_btn2:
+          if st.button("🗑️ Hapus", key=f"del_{row['ID']}"):
             st.session_state["content_db"] = st.session_state["content_db"][
                 st.session_state["content_db"]["ID"] != row["ID"]
             ]
             st.rerun()
 
-    st.divider()
+        st.divider()
 
     st.subheader("📥 Backup Data ke CSV (Bisa dibuka di Excel)")
 
