@@ -350,33 +350,24 @@ if menu == "📋 Daftar Konten & Jadwal":
 
             if btn_update:
               gabung_waktu = datetime.combine(edit_tanggal, edit_jam)
-              idx_match = st.session_state["content_db"][
-                  st.session_state["content_db"]["ID"] == target_id
-              ].index
 
-              st.session_state["content_db"].loc[idx_match, "Judul Konten"] = (
-                  edit_judul
-              )
-              st.session_state["content_db"].loc[idx_match, "Platform"] = (
-                  edit_platform
-              )
-              st.session_state["content_db"].loc[idx_match, "Tipe Konten"] = [
-                  edit_tipe
-              ]
-              st.session_state["content_db"].loc[idx_match, "Jadwal Upload"] = (
-                  gabung_waktu.strftime("%Y-%m-%d %H:%M")
-              )
-              st.session_state["content_db"].loc[
-                  idx_match, "Link Google Drive"
-              ] = edit_gdrive
-              st.session_state["content_db"].loc[idx_match, "Status"] = (
-                  edit_status
-              )
-              st.session_state["content_db"].loc[idx_match, "Catatan"] = (
-                  edit_catatan
-              )
+              # PERBAIKAN TOTAL: Update dataframe secara langsung per baris indeks yang cocok tanpa error ndim
+              db_df = st.session_state["content_db"]
+              mask = db_df["ID"] == target_id
 
-              save_database(st.session_state["content_db"])
+              db_df.loc[mask, "Judul Konten"] = edit_judul
+              db_df.loc[mask, "Platform"] = edit_platform
+              db_df.at[db_df[mask].index[0], "Tipe Konten"] = (
+                  edit_tipe  # Menggunakan .at untuk list agar aman
+              )
+              db_df.loc[mask, "Jadwal Upload"] = gabung_waktu.strftime(
+                  "%Y-%m-%d %H:%M"
+              )
+              db_df.loc[mask, "Link Google Drive"] = edit_gdrive
+              db_df.loc[mask, "Status"] = edit_status
+              db_df.loc[mask, "Catatan"] = edit_catatan
+
+              save_database(db_df)
               del st.session_state["edit_id"]
               st.success(
                   "Perubahan konten berhasil disimpan ke database SQLite!"
@@ -761,8 +752,6 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
         if isinstance(selected_row["Tipe Konten"], list)
         else str(selected_row["Tipe Konten"])
     )
-    
-    # Menggunakan f-string yang aman dan bersih tanpa risiko string terpotong
     pesan_wa = (
         f"Halo! Reminder nih, konten sosial media *{selected_row['Judul Konten']}* "
         f"dengan format ({tipe_str}) harus naik ke {selected_row['Platform']} "
