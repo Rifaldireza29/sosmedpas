@@ -185,7 +185,6 @@ if menu == "📋 Daftar Konten & Jadwal":
           " ujung kanan setiap baris konten."
       )
 
-      # Menggunakan enumerate untuk menampilkan nomor urut (1, 2, 3, dst.)
       for no, (index, row) in enumerate(filtered_df.iterrows(), 1):
         tipe_str = (
             ", ".join(row["Tipe Konten"])
@@ -383,14 +382,19 @@ if menu == "📋 Daftar Konten & Jadwal":
 
     def convert_df_to_csv(df_to_export):
       export_data = df_to_export.copy()
-      # Ubah kolom ID menjadi nomor urut 1, 2, 3, dst.
       export_data["ID"] = range(1, len(export_data) + 1)
-
-      # Ubah list Tipe Konten menjadi string koma
       export_data["Tipe Konten"] = export_data["Tipe Konten"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else str(x)
       )
       return export_data.to_csv(index=False).encode("utf-8")
+
+
+    csv_file = convert_df_to_csv(df)
+    st.download_button(
+        label="📥 Download Backup (.csv)",
+        data=csv_file,
+        file_name=f"Backup_Jadwal_Sosmed_{datetime.now().strftime('%Y-%m-%d')}.csv",
+        mime="text/csv",
     )
 
 # ==========================================
@@ -743,7 +747,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
-        if isinstance(selected_row["Tip Konten"], list)
+        if isinstance(selected_row["Tipe Konten"], list)
         else str(selected_row["Tipe Konten"])
     )
     pesan_wa = (
