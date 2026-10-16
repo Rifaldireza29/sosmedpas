@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import io
 import urllib.parse
 import pandas as pd
@@ -42,7 +42,7 @@ menu = st.sidebar.selectbox(
 )
 
 # ==========================================
-# MENU 1: DAFTAR KONTEN & JADWAL (Dibuat Tabel Rapi + Tombol Aksi)
+# MENU 1: DAFTAR KONTEN & JADWAL
 # ==========================================
 if menu == "📋 Daftar Konten & Jadwal":
   st.subheader("📋 Tabel Jadwal & Status Konten Sosial Media")
@@ -55,7 +55,6 @@ if menu == "📋 Daftar Konten & Jadwal":
         " Konten Baru**."
     )
   else:
-    # Filter atas tabel
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
       filter_status = st.selectbox(
@@ -84,13 +83,11 @@ if menu == "📋 Daftar Konten & Jadwal":
     if filtered_df.empty:
       st.warning("Tidak ada konten yang cocok dengan filter / pencarian.")
     else:
-      # Format Tipe Konten agar tampil rapi di tabel (mengubah list menjadi string koma)
       display_df = filtered_df.copy()
       display_df["Tipe Konten"] = display_df["Tipe Konten"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else x
       )
 
-      # Tampilkan sebagai tabel yang rapi dan bersih
       st.dataframe(
           display_df[
               [
@@ -108,11 +105,6 @@ if menu == "📋 Daftar Konten & Jadwal":
       )
 
       st.markdown("### ⚙️ Kelola / Ubah Status Konten")
-      st.markdown(
-          "Pilih ID atau Judul konten di bawah untuk memperbarui status"
-          " (Posted/Hapus):"
-      )
-
       for index, row in filtered_df.iterrows():
         tipe_str = (
             ", ".join(row["Tipe Konten"])
@@ -144,30 +136,21 @@ if menu == "📋 Daftar Konten & Jadwal":
 
     st.divider()
 
-    # --- FITUR UNDUH EXCEL (BACKUP DATA) ---
     st.subheader("📥 Backup Data ke Excel")
-    st.markdown(
-        "Download seluruh database jadwal konten ke dalam format file Excel"
-        " (`.xlsx`) untuk cadangan data."
-    )
 
 
-    # Fungsi untuk mengubah dataframe menjadi file Excel di memory
     def convert_df_to_excel(df_to_export):
       output = io.BytesIO()
-      # Ubah list tipe konten menjadi string biasa agar tidak error saat masuk Excel
       export_data = df_to_export.copy()
       export_data["Tipe Konten"] = export_data["Tipe Konten"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else x
       )
       with pd.ExcelWriter(output, engine="openpyxl") as writer:
         export_data.to_excel(writer, index=False, sheet_name="Jadwal Sosmed")
-      processed_data = output.getvalue()
-      return processed_data
+      return output.getvalue()
 
 
     excel_file = convert_df_to_excel(df)
-
     st.download_button(
         label="📥 Download Jadwal Konten (.xlsx)",
         data=excel_file,
@@ -248,11 +231,6 @@ elif menu == "➕ Tambah Konten Baru":
 # ==========================================
 elif menu == "🔔 Pusat Notifikasi & History":
   st.subheader("🔔 Pusat Notifikasi & Riwayat Konten")
-  st.markdown(
-      "Halaman ini merangkum pengingat konten yang harus segera naik (H-2 jam)"
-      " serta rekap riwayat aktivitas akun."
-  )
-
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -275,19 +253,34 @@ elif menu == "🔔 Pusat Notifikasi & History":
               row["Jadwal Upload"], "%Y-%m-%d %H:%M"
           )
           selisih_waktu = waktu_jadwal - waktu_sekarang
-          sisa_jam = selisih_waktu.total_seconds() / 3600
+          total_detik = selisih_waktu.total_seconds()
+          sisa_menit = total_detik / 60
 
-          if sisa_jam <= 2:
+          # Jika kurang dari atau sama dengan 120 menit (2 jam) ATAU sudah lewat
+          if sisa_menit <= 120:
             ada_alert = True
             tipe_str = (
                 ", ".join(row["Tipe Konten"])
                 if isinstance(row["Tipe Konten"], list)
                 else row["Tipe Konten"]
             )
+
+            if total_detik > 0:
+              jam_cd = int(total_detik // 3600)
+              menit_cd = int((total_detik % 3600) // 60)
+              detik_cd = int(total_detik % 60)
+              countdown_text = f"⏳ **Countdown:** {jam_cd:02d} jam {menit_cd:02d} menit {detik_cd:02d} detik lagi"
+            else:
+              countdown_text = (
+                  "🚨 **STATUS:** Waktu upload sudah lewat dari jadwal!"
+              )
+
             st.error(
-                f"🚨 **PERINGATAN UPLOAD:** Konten **'{row['Judul Konten']}'**"
-                f" ({tipe_str}) di **{row['Platform']}** harus naik pada"
-                f" **{row['Jadwal Upload']}**!"
+                f"🚨 **PERINGATAN UPLOAD DEKAT!**\n\n"
+                f"• **Judul:** {row['Judul Konten']}\n"
+                f"• **Platform & Format:** {row['Platform']} ({tipe_str})\n"
+                f"• **Jadwal Target:** {row['Jadwal Upload']}\n"
+                f"• {countdown_text}"
             )
             st.write(
                 f"🔗 [Akses File Google Drive"
@@ -297,7 +290,8 @@ elif menu == "🔔 Pusat Notifikasi & History":
 
         if not ada_alert:
           st.info(
-              "Belum ada konten yang jadwalnya kurang dari 2 jam dari sekarang."
+              "ℹ️ Belum ada konten yang masuk masa H-2 jam. Semua jadwal"
+              " masih berjarak lebih dari 2 jam dari sekarang."
           )
 
     with tab_history:
@@ -314,74 +308,4 @@ elif menu == "🔔 Pusat Notifikasi & History":
       col_s4.metric("Draft", total_draft)
 
       st.markdown("<br>", unsafe_allow_html=True)
-      history_display = df.copy()
-      history_display["Tipe Konten"] = history_display["Tipe Konten"].apply(
-          lambda x: ", ".join(x) if isinstance(x, list) else x
-      )
-      st.dataframe(
-          history_display[
-              [
-                  "Judul Konten",
-                  "Platform",
-                  "Tipe Konten",
-                  "Jadwal Upload",
-                  "Status",
-              ]
-          ],
-          use_container_width=True,
-          hide_index=True,
-      )
-
-# ==========================================
-# MENU 4: KIRIM WHATSAPP REMINDER
-# ==========================================
-elif menu == "⏰ Kirim WhatsApp Reminder":
-  st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp")
-  st.markdown(
-      "Gunakan menu ini jika ingin mengirimkan pengingat manual ke WhatsApp"
-      " berdasarkan data konten yang sudah terjadwal."
-  )
-
-  df = st.session_state["content_db"]
-  scheduled_df = df[df["Status"] == "Scheduled"]
-
-  if scheduled_df.empty:
-    st.info("Tidak ada konten dengan status 'Scheduled' untuk diingatkan.")
-  else:
-    pilihan_konten = st.selectbox(
-        "Pilih Konten yang Mau Diingatkan",
-        scheduled_df["Judul Konten"].tolist(),
-    )
-    selected_row = scheduled_df[
-        scheduled_df["Judul Konten"] == pilihan_konten
-    ].iloc[0]
-
-    nomor_tujuan = st.text_input(
-        "Nomor WhatsApp Admin (awali 62, contoh: 62812345678):",
-        value="6281234567890",
-    )
-
-    tipe_str = (
-        ", ".join(selected_row["Tipe Konten"])
-        if isinstance(selected_row["Tipe Konten"], list)
-        else selected_row["Tipe Konten"]
-    )
-    pesan_wa = (
-        f"Halo! Reminder nih, konten sosial media *{selected_row['Judul Konten']}*"
-        f" dengan format ({tipe_str}) harus naik ke"
-        f" {selected_row['Platform']} pada jam {selected_row['Jadwal Upload']}."
-        f" Jangan lupa cek asetnya ya: {selected_row['Link Google Drive']}"
-    )
-
-    encoded_pesan = urllib.parse.quote(pesan_wa)
-    whatsapp_url = (
-        f"https://api.whatsapp.com/send?phone={nomor_tujuan}&text={encoded_pesan}"
-    )
-
-    st.markdown(
-        f'<a href="{whatsapp_url}" target="_blank"><button'
-        ' style="background-color:#25D366; color:white; padding:10px'
-        ' 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px;">📲'
-        " Buka WhatsApp & Kirim Pesan</button></a>",
-        unsafe_allow_html=True,
-    )
+      history_display
