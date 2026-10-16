@@ -350,23 +350,37 @@ if menu == "📋 Daftar Konten & Jadwal":
 
             if btn_update:
               gabung_waktu = datetime.combine(edit_tanggal, edit_jam)
-              
-              # PERBAIKAN: Update kolom data satu per satu agar bebas dari error numpy ndim
               idx_match = st.session_state["content_db"][
                   st.session_state["content_db"]["ID"] == target_id
               ].index
-              
-              st.session_state["content_db"].loc[idx_match, "Judul Konten"] = edit_judul
-              st.session_state["content_db"].loc[idx_match, "Platform"] = edit_platform
-              st.session_state["content_db"].loc[idx_match, "Tipe Konten"] = [edit_tipe]
-              st.session_state["content_db"].loc[idx_match, "Jadwal Upload"] = gabung_waktu.strftime("%Y-%m-%d %H:%M")
-              st.session_state["content_db"].loc[idx_match, "Link Google Drive"] = edit_gdrive
-              st.session_state["content_db"].loc[idx_match, "Status"] = edit_status
-              st.session_state["content_db"].loc[idx_match, "Catatan"] = edit_catatan
+
+              st.session_state["content_db"].loc[idx_match, "Judul Konten"] = (
+                  edit_judul
+              )
+              st.session_state["content_db"].loc[idx_match, "Platform"] = (
+                  edit_platform
+              )
+              st.session_state["content_db"].loc[idx_match, "Tipe Konten"] = [
+                  edit_tipe
+              ]
+              st.session_state["content_db"].loc[idx_match, "Jadwal Upload"] = (
+                  gabung_waktu.strftime("%Y-%m-%d %H:%M")
+              )
+              st.session_state["content_db"].loc[
+                  idx_match, "Link Google Drive"
+              ] = edit_gdrive
+              st.session_state["content_db"].loc[idx_match, "Status"] = (
+                  edit_status
+              )
+              st.session_state["content_db"].loc[idx_match, "Catatan"] = (
+                  edit_catatan
+              )
 
               save_database(st.session_state["content_db"])
               del st.session_state["edit_id"]
-              st.success("Perubahan konten berhasil disimpan ke database SQLite!")
+              st.success(
+                  "Perubahan konten berhasil disimpan ke database SQLite!"
+              )
               st.rerun()
 
             if btn_cancel:
@@ -747,13 +761,23 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
         if isinstance(selected_row["Tipe Konten"], list)
         else str(selected_row["Tipe Konten"])
     )
+    
+    # Menggunakan f-string yang aman dan bersih tanpa risiko string terpotong
     pesan_wa = (
-        "Halo! Reminder nih, konten sosial media *"
-        + str(selected_row["Judul Konten"])
-        + "* dengan format ("
-        + str(tipe_str)
-        + ") harus naik ke "
-        + str(selected_row["Platform"])
-        + " pada jam "
-        + str(selected_row["Jadwal Upload"])
-        + ". Jangan lupa cek
+        f"Halo! Reminder nih, konten sosial media *{selected_row['Judul Konten']}* "
+        f"dengan format ({tipe_str}) harus naik ke {selected_row['Platform']} "
+        f"pada jam {selected_row['Jadwal Upload']}. Jangan lupa cek asetnya ya: {selected_row['Link Google Drive']}"
+    )
+
+    encoded_pesan = urllib.parse.quote(pesan_wa)
+    whatsapp_url = (
+        f"https://api.whatsapp.com/send?phone={nomor_final}&text={encoded_pesan}"
+    )
+
+    st.markdown(
+        f'<a href="{whatsapp_url}" target="_blank"><button'
+        ' style="background-color:#25D366; color:white; padding:10px'
+        ' 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px;">📲'
+        " Buka WhatsApp & Kirim Pesan</button></a>",
+        unsafe_allow_html=True,
+    )
