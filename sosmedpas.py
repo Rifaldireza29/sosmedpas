@@ -383,18 +383,14 @@ if menu == "📋 Daftar Konten & Jadwal":
 
     def convert_df_to_csv(df_to_export):
       export_data = df_to_export.copy()
+      # Ubah kolom ID menjadi nomor urut 1, 2, 3, dst.
+      export_data["ID"] = range(1, len(export_data) + 1)
+
+      # Ubah list Tipe Konten menjadi string koma
       export_data["Tipe Konten"] = export_data["Tipe Konten"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else str(x)
       )
       return export_data.to_csv(index=False).encode("utf-8")
-
-
-    csv_file = convert_df_to_csv(df)
-    st.download_button(
-        label="📥 Download Backup (.csv)",
-        data=csv_file,
-        file_name=f"Backup_Jadwal_Sosmed_{datetime.now().strftime('%Y-%m-%d')}.csv",
-        mime="text/csv",
     )
 
 # ==========================================
