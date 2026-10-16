@@ -350,26 +350,20 @@ if menu == "📋 Daftar Konten & Jadwal":
 
             if btn_update:
               gabung_waktu = datetime.combine(edit_tanggal, edit_jam)
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == target_id,
-                  [
-                      "Judul Konten",
-                      "Platform",
-                      "Tipe Konten",
-                      "Jadwal Upload",
-                      "Link Google Drive",
-                      "Status",
-                      "Catatan",
-                  ],
-              ] = [
-                  edit_judul,
-                  edit_platform,
-                  edit_tipe,
-                  gabung_waktu.strftime("%Y-%m-%d %H:%M"),
-                  edit_gdrive,
-                  edit_status,
-                  edit_catatan,
-              ]
+              
+              # PERBAIKAN: Update kolom data satu per satu agar bebas dari error numpy ndim
+              idx_match = st.session_state["content_db"][
+                  st.session_state["content_db"]["ID"] == target_id
+              ].index
+              
+              st.session_state["content_db"].loc[idx_match, "Judul Konten"] = edit_judul
+              st.session_state["content_db"].loc[idx_match, "Platform"] = edit_platform
+              st.session_state["content_db"].loc[idx_match, "Tipe Konten"] = [edit_tipe]
+              st.session_state["content_db"].loc[idx_match, "Jadwal Upload"] = gabung_waktu.strftime("%Y-%m-%d %H:%M")
+              st.session_state["content_db"].loc[idx_match, "Link Google Drive"] = edit_gdrive
+              st.session_state["content_db"].loc[idx_match, "Status"] = edit_status
+              st.session_state["content_db"].loc[idx_match, "Catatan"] = edit_catatan
+
               save_database(st.session_state["content_db"])
               del st.session_state["edit_id"]
               st.success("Perubahan konten berhasil disimpan ke database SQLite!")
@@ -762,19 +756,4 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
         + str(selected_row["Platform"])
         + " pada jam "
         + str(selected_row["Jadwal Upload"])
-        + ". Jangan lupa cek asetnya ya: "
-        + str(selected_row["Link Google Drive"])
-    )
-
-    encoded_pesan = urllib.parse.quote(pesan_wa)
-    whatsapp_url = (
-        f"https://api.whatsapp.com/send?phone={nomor_final}&text={encoded_pesan}"
-    )
-
-    st.markdown(
-        f'<a href="{whatsapp_url}" target="_blank"><button'
-        ' style="background-color:#25D366; color:white; padding:10px'
-        ' 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px;">📲'
-        " Buka WhatsApp & Kirim Pesan</button></a>",
-        unsafe_allow_html=True,
-    )
+        + ". Jangan lupa cek
