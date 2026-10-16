@@ -101,16 +101,15 @@ if menu == "📋 Daftar Konten & Jadwal":
       st.warning("Tidak ada konten yang cocok dengan filter / pencarian tanggal.")
     else:
       st.markdown(
-          "💡 **Cara Kelola:** Ubah kolom **Status** (Draft/Scheduled/Posted) atau"
-          " centang kolom **Hapus?**, lalu klik tombol **Simpan Perubahan** di"
-          " bawah tabel."
+          "💡 **Cara Kelola:** Ubah kolom **Status** langsung di tabel, atau"
+          " gunakan tombol **✏️ Edit** untuk mengubah detail, dan tombol **🗑️"
+          " Hapus** untuk menghapus baris."
       )
 
       edit_df = filtered_df.copy()
       edit_df["Tipe Konten"] = edit_df["Tipe Konten"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else x
       )
-      edit_df["Hapus?"] = False
 
       edited_df = st.data_editor(
           edit_df[
@@ -124,7 +123,6 @@ if menu == "📋 Daftar Konten & Jadwal":
                   "Approval",
                   "Link Google Drive",
                   "Catatan",
-                  "Hapus?",
               ]
           ],
           column_config={
@@ -138,9 +136,6 @@ if menu == "📋 Daftar Konten & Jadwal":
                   "Link Google Drive",
                   help="Klik untuk membuka folder/file di GDrive",
                   display_text="📂 Buka GDrive",
-              ),
-              "Hapus?": st.column_config.CheckboxColumn(
-                  "Hapus?", default=False
               ),
           },
           disabled=[
@@ -157,23 +152,144 @@ if menu == "📋 Daftar Konten & Jadwal":
           key="manager_table_editor",
       )
 
-      if st.button("💾 Simpan Perubahan Tabel", type="primary"):
+      if st.button("💾 Simpan Perubahan Status", type="primary"):
         for index, row in edited_df.iterrows():
           row_id = row["ID"]
           new_status = row["Status"]
-          is_deleted = row["Hapus?"]
+          st.session_state["content_db"].loc[
+              st.session_state["content_db"]["ID"] == row_id, "Status"
+          ] = new_status
 
-          if is_deleted:
-            st.session_state["content_db"] = st.session_state["content_db"][
-                st.session_state["content_db"]["ID"] != row_id
-            ]
-          else:
-            st.session_state["content_db"].loc[
-                st.session_state["content_db"]["ID"] == row_id, "Status"
-            ] = new_status
-
-        st.success("Perubahan berhasil disimpan!")
+        st.success("Perubahan status berhasil disimpan!")
         st.rerun()
+
+      st.markdown("---")
+      st.subheader("⚙️ Aksi Cepat (Edit & Hapus per Baris)")
+
+      for index, row in filtered_df.iterrows():
+        c_act1, c_act2, c_act3 = st.columns([3, 1, 1])
+        with c_act1:
+          st.write(
+              f"📌 **{row['Judul Konten']}** ({row['Platform']} -"
+              f" {row['Jadwal Upload']})"
+          )
+        with c_act2:
+          if st.button("✏️ Edit", key=f"edit_btn_{row['ID']}"):
+            st.session_state["edit_id"] = row["ID"]
+            st.rerun()
+        with c_act3:
+          if st.button("🗑️ Hapus", key=f"del_btn_{row['ID']}"):
+            st.session_state["content_db"] = st.session_state["content_db"][
+                st.session_state["content_db"]["ID"] != row["ID"]
+            ]
+            st.success(f"Konten '{row['Judul Konten']}' berhasil dihapus!")
+            st.rerun()
+
+      # FORM EDIT MUNCUL JIKA TOMBOL EDIT DIKLIK
+      if "edit_id" in st.session_state and st.session_state["edit_id"]:
+        target_id = st.session_state["edit_id"]
+        target_row = st.session_state["content_db"][
+            st.session_state["content_db"]["ID"] == target_id
+        ]
+
+        if not target_row.empty:
+          r_data = target_row.iloc[0]
+          st.markdown("---")
+          st.subheader(f"✏️ Edit Konten: {r_data['Judul Konten']}")
+
+          with st.form("form_edit_konten"):
+            edit_judul = st.text_input("Judul / Tema Konten", value=r_data["Judul Konten"])
+            
+            ec1, ec2 = st.columns(2)
+            with ec1:
+              platforms_list = ["Instagram", "TikTok", "YouTube", "Facebook"]
+              p_idx = (
+                  platforms_list.index(r_data["Platform"])
+                  if r_data["Platform"] in platforms_list
+                  else 0
+              )
+              edit_platform = st.selectbox(
+                  "Platform Utama", platforms_list, index=p_idx
+              )
+              
+              current_tipe = (
+                  r_data["Tipe Konten"]
+                  if isinstance(r_data["Tipe Konten"], list)
+                  else [r_data["Tipe Konten"]]
+              )
+              edit_tipe = st.multiselect(
+                  "Tipe Konten",
+                  [
+                      "IG Feed",
+                      "IG Story",
+                      "IG Reel",
+                      "Carousel",
+                      "Video Short",
+                      "Lainnya",
+                  ],
+                  default=current_tipe,
+              )
+            with ec2:
+              try:
+                parsed_dt = datetime.strptime(r_data["Jadwal Upload"], "%Y-%m-%d %H:%M")
+                def_date = parsed_dt.date()
+                def_time = parsed_dt.time()
+              except:
+                def_date = date.today()
+                def_time = datetime.now().time()
+
+              edit_tanggal = st.date_input("Tanggal Upload", value=def_date)
+              edit_jam = st.time_input("Jam Upload", value=def_time)
+
+            edit_gdrive = st.text_input(
+                "Link Google Drive", value=r_data["Link Google Drive"]
+            )
+            
+            status_list = ["Draft", "Scheduled", "Posted"]
+            s_idx = (
+                status_list.index(r_data["Status"])
+                if r_data["Status"] in status_list
+                else 0
+            )
+            edit_status = st.selectbox("Status", status_list, index=s_idx)
+            
+            edit_catatan = st.text_area("Catatan Tambahan / Copywriting", value=r_data["Catatan"])
+
+            col_submit_e1, col_submit_e2 = st.columns(2)
+            with col_submit_e1:
+              btn_update = st.form_submit_button("💾 Update Perubahan", type="primary")
+            with col_submit_e2:
+              btn_cancel = st.form_submit_button("❌ Batal")
+
+            if btn_update:
+              gabung_waktu = datetime.combine(edit_tanggal, edit_jam)
+              st.session_state["content_db"].loc[
+                  st.session_state["content_db"]["ID"] == target_id,
+                  [
+                      "Judul Konten",
+                      "Platform",
+                      "Tipe Konten",
+                      "Jadwal Upload",
+                      "Link Google Drive",
+                      "Status",
+                      "Catatan",
+                  ],
+              ] = [
+                  edit_judul,
+                  edit_platform,
+                  edit_tipe,
+                  gabung_waktu.strftime("%Y-%m-%d %H:%M"),
+                  edit_gdrive,
+                  edit_status,
+                  edit_catatan,
+              ]
+              del st.session_state["edit_id"]
+              st.success("Perubahan konten berhasil disimpan!")
+              st.rerun()
+
+            if btn_cancel:
+              del st.session_state["edit_id"]
+              st.rerun()
 
     st.divider()
 
@@ -266,7 +382,7 @@ elif menu == "➕ Tambah Konten Baru":
         )
 
 # ==========================================
-# MENU 3: APPROVAL DIREKSI (Tabel Kotak-Kotak Kartu Rapi & Sekali Klik)
+# MENU 3: APPROVAL DIREKSI
 # ==========================================
 elif menu == "👔 Approval Direksi":
   st.subheader("👔 Panel Persetujuan (Approval) Direksi")
@@ -304,7 +420,6 @@ elif menu == "👔 Approval Direksi":
             else row["Tipe Konten"]
         )
 
-        # Menggunakan Kotak Kartu Rapi (Boxed Container)
         with st.container(border=True):
           c1, c2, c3, c4, c5 = st.columns([2, 1.2, 1.2, 1.2, 1.4])
 
@@ -315,22 +430,22 @@ elif menu == "👔 Approval Direksi":
             )
 
           with c2:
-            st.markdown(f"🕒 **Jadwal:**")
+            st.markdown("🕒 **Jadwal:**")
             st.write(row["Jadwal Upload"])
 
           with c3:
-            st.markdown(f"📂 **GDrive:**")
+            st.markdown("📂 **GDrive:**")
             if row["Link Google Drive"]:
               st.markdown(f"[Buka Link]({row['Link Google Drive']})")
             else:
               st.write("-")
 
           with c4:
-            st.markdown(f"📝 **Catatan:**")
+            st.markdown("📝 **Catatan:**")
             st.write(row["Catatan"] if row["Catatan"] else "-")
 
           with c5:
-            st.markdown(f"⚡ **Approval:**")
+            st.markdown("⚡ **Approval:**")
             btn_app, btn_rej = st.columns(2)
             with btn_app:
               if st.button(
