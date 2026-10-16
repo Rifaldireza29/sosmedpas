@@ -9,31 +9,6 @@ st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
 )
 
-# CSS Tambahan untuk Membuat Efek Kotak-Kotak Tabel yang Tegas dan Rapi
-st.markdown(
-    """
-    <style>
-    .styled-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-        margin-bottom: 20px;
-    }
-    .styled-table th, .styled-table td {
-        border: 1px solid #d6d6d6;
-        padding: 10px;
-        text-align: left;
-        vertical-align: middle;
-    }
-    .styled-table th {
-        background-color: #f0f2f6;
-        font-weight: bold;
-    }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
-
 # Inisialisasi Database Sementara di Session State
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = pd.DataFrame(
@@ -291,7 +266,7 @@ elif menu == "➕ Tambah Konten Baru":
         )
 
 # ==========================================
-# MENU 3: APPROVAL DIREKSI (Tabel Kotak-Kotak Bergaris Rapi)
+# MENU 3: APPROVAL DIREKSI (Tabel Kotak-Kotak Kartu Rapi & Sekali Klik)
 # ==========================================
 elif menu == "👔 Approval Direksi":
   st.subheader("👔 Panel Persetujuan (Approval) Direksi")
@@ -322,76 +297,59 @@ elif menu == "👔 Approval Direksi":
           "🎉 Tidak ada konten yang menunggu approval untuk tanggal tersebut."
       )
     else:
-      # Render Tabel Berkotak Menggunakan HTML & CSS
-      table_html = """
-            <table class="styled-table">
-                <thead>
-                    <tr>
-                        <th>Judul</th>
-                        <th>Platform</th>
-                        <th>Tipe</th>
-                        <th>Jadwal</th>
-                        <th>GDrive</th>
-                        <th>Catatan</th>
-                        <th>Approval</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
-
       for index, row in pending_df.iterrows():
         tipe_str = (
             ", ".join(row["Tipe Konten"])
             if isinstance(row["Tipe Konten"], list)
             else row["Tipe Konten"]
         )
-        gdrive_link = (
-            f'<a href="{row["Link Google Drive"]}" target="_blank">📂 Buka</a>'
-            if row["Link Google Drive"]
-            else "-"
-        )
-        catatan_text = row["Catatan"] if row["Catatan"] else "-"
 
-        table_html += f"""
-                <tr>
-                    <td><b>{row['Judul Konten']}</b></td>
-                    <td>{row['Platform']}</td>
-                    <td>{tipe_str}</td>
-                    <td>{row['Jadwal Upload']}</td>
-                    <td>{gdrive_link}</td>
-                    <td>{catatan_text}</td>
-                    <td id="action_{row['ID']}"></td>
-                </tr>
-                """
+        # Menggunakan Kotak Kartu Rapi (Boxed Container)
+        with st.container(border=True):
+          c1, c2, c3, c4, c5 = st.columns([2, 1.2, 1.2, 1.2, 1.4])
 
-      table_html += "</tbody></table>"
-      st.markdown(table_html, unsafe_allow_html=True)
+          with c1:
+            st.markdown(f"📌 **{row['Judul Konten']}**")
+            st.caption(
+                f"Platform: {row['Platform']} | Tipe: {tipe_str}"
+            )
 
-      st.markdown("---")
-      st.markdown(
-          "**Tombol Aksi Approval Cepat (Sekali Klik):**"
-      )
+          with c2:
+            st.markdown(f"🕒 **Jadwal:**")
+            st.write(row["Jadwal Upload"])
 
-      for index, row in pending_df.iterrows():
-        cols = st.columns([3, 1, 1])
-        with cols[0]:
-          st.write(
-              f"📌 **{row['Judul Konten']}** ({row['Platform']} - {row['Jadwal Upload']})"
-          )
-        with cols[1]:
-          if st.button("✅ Approve", key=f"app_{row['ID']}"):
-            st.session_state["content_db"].loc[
-                st.session_state["content_db"]["ID"] == row["ID"], "Approval"
-            ] = "Approved"
-            st.success(f"Konten '{row['Judul Konten']}' disetujui!")
-            st.rerun()
-        with cols[2]:
-          if st.button("❌ Reject", key=f"rej_{row['ID']}"):
-            st.session_state["content_db"].loc[
-                st.session_state["content_db"]["ID"] == row["ID"], "Approval"
-            ] = "Rejected"
-            st.warning(f"Konten '{row['Judul Konten']}' ditolak.")
-            st.rerun()
+          with c3:
+            st.markdown(f"📂 **GDrive:**")
+            if row["Link Google Drive"]:
+              st.markdown(f"[Buka Link]({row['Link Google Drive']})")
+            else:
+              st.write("-")
+
+          with c4:
+            st.markdown(f"📝 **Catatan:**")
+            st.write(row["Catatan"] if row["Catatan"] else "-")
+
+          with c5:
+            st.markdown(f"⚡ **Approval:**")
+            btn_app, btn_rej = st.columns(2)
+            with btn_app:
+              if st.button(
+                  "✅", key=f"app_{row['ID']}", help="Setujui (Approve)"
+              ):
+                st.session_state["content_db"].loc[
+                    st.session_state["content_db"]["ID"] == row["ID"],
+                    "Approval",
+                ] = "Approved"
+                st.success("Disetujui!")
+                st.rerun()
+            with btn_rej:
+              if st.button("❌", key=f"rej_{row['ID']}", help="Tolak (Reject)"):
+                st.session_state["content_db"].loc[
+                    st.session_state["content_db"]["ID"] == row["ID"],
+                    "Approval",
+                ] = "Rejected"
+                st.warning("Ditolak.")
+                st.rerun()
 
     st.markdown("### 📜 Riwayat Semua Approval")
     history_approval = df[
@@ -541,10 +499,10 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
     ].iloc[0]
 
     daftar_tim = {
-        "Admin 1 - Budi (62812xxxxxx)": "6281234567891",
-        "Admin 2 - Siti (62813xxxxxx)": "6281345678902",
-        "Admin 3 - Andi (62818xxxxxx)": "6281845678903",
-        "Admin 4 - Dewi (62819xxxxxx)": "6281945678904",
+        "Reza": "6281321686233",
+        "Emma": "628175731188",
+        "Gilang": "6281809830066",
+        "Surya": "6281945678904",
     }
 
     pilihan_admin = st.selectbox(
@@ -558,7 +516,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
-        if isinstance(selected_row["Tippy Konten"], list)
+        if isinstance(selected_row["Tipe Konten"], list)
         else selected_row["Tipe Konten"]
     )
     pesan_wa = (
