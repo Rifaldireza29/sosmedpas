@@ -43,12 +43,10 @@ def load_database():
   conn = sqlite3.connect(DB_NAME)
   try:
     df = pd.read_sql("SELECT * FROM content_db", conn)
-    # Kembalikan kolom Tipe_Konten menjadi list jika berupa string koma
     if "Tipe_Konten" in df.columns:
       df["Tipe_Konten"] = df["Tipe_Konten"].apply(
           lambda x: x.split(", ") if isinstance(x, str) else []
       )
-    # Ubah nama kolom agar sesuai dengan kode program
     df = df.rename(
         columns={
             "Judul_Konten": "Judul Konten",
@@ -79,11 +77,9 @@ def load_database():
 def save_database(df):
   conn = sqlite3.connect(DB_NAME)
   df_to_save = df.copy()
-  # Ubah list Tipe Konten menjadi string koma
   df_to_save["Tipe Konten"] = df_to_save["Tipe Konten"].apply(
       lambda x: ", ".join(x) if isinstance(x, list) else str(x)
   )
-  # Ubah nama kolom untuk database SQL
   df_to_save = df_to_save.rename(
       columns={
           "Judul Konten": "Judul_Konten",
@@ -100,7 +96,6 @@ def save_database(df):
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = load_database()
 
-# PENGAMAN: Jika kolom 'Approval' belum ada
 if "Approval" not in st.session_state["content_db"].columns:
   st.session_state["content_db"]["Approval"] = "Pending Approval"
   save_database(st.session_state["content_db"])
@@ -128,9 +123,15 @@ menu = st.sidebar.radio(
 # MENU 1: DAFTAR KONTEN & JADWAL
 # ==========================================
 if menu == "📋 Daftar Konten & Jadwal":
-  st.subheader("📋 Tabel Jadwal & Manajemen Konten Sosial Media")
+  col_title, col_btn = st.columns([4, 1])
+  with col_title:
+    st.subheader("📋 Tabel Jadwal & Manajemen Konten Sosial Media")
+  with col_btn:
+    if st.button("🔄 Refresh Data", key="ref_menu1"):
+      st.session_state["content_db"] = load_database()
+      st.success("Data berhasil diperbarui!")
+      st.rerun()
 
-  # Muat data terbaru dari SQLite
   st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
 
@@ -475,7 +476,15 @@ elif menu == "➕ Tambah Konten Baru":
 # MENU 3: APPROVAL DIREKSI
 # ==========================================
 elif menu == "👔 Approval Direksi":
-  st.subheader("👔 Panel Persetujuan (Approval) Direksi")
+  col_title_app, col_btn_app = st.columns([4, 1])
+  with col_title_app:
+    st.subheader("👔 Panel Persetujuan (Approval) Direksi")
+  with col_btn_app:
+    if st.button("🔄 Refresh Data", key="ref_menu3"):
+      st.session_state["content_db"] = load_database()
+      st.success("Data berhasil diperbarui!")
+      st.rerun()
+
   st.markdown(
       "Direksi dapat memeriksa materi konten, mengecek aset Google Drive,"
       " catatan, dan memberikan persetujuan dengan **sekali klik**."
@@ -571,7 +580,15 @@ elif menu == "👔 Approval Direksi":
 # MENU 4: PUSAT NOTIFIKASI & HISTORY
 # ==========================================
 elif menu == "🔔 Pusat Notifikasi & History":
-  st.subheader("🔔 Pusat Notifikasi & Riwayat Konten")
+  col_title_notif, col_btn_notif = st.columns([4, 1])
+  with col_title_notif:
+    st.subheader("🔔 Pusat Notifikasi & Riwayat Konten")
+  with col_btn_notif:
+    if st.button("🔄 Refresh Data", key="ref_menu4"):
+      st.session_state["content_db"] = load_database()
+      st.success("Data berhasil diperbarui!")
+      st.rerun()
+
   st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
 
