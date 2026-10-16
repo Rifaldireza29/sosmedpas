@@ -361,4 +361,19 @@ elif menu == "🔔 Pusat Notifikasi & History":
                 f"• **Judul:** {row['Judul Konten']}\n"
                 f"• **Platform & Format:** {row['Platform']} ({tipe_str})\n"
                 f"• **Jadwal Target:** {row['Jadwal Upload']}\n"
-                f"• {
+                f"• {countdown_text}"
+            )
+            st.markdown(
+                f"🔗 [📂 Buka Aset di Google"
+                f" Drive]({row['Link Google Drive']})"
+            )
+            st.divider()
+
+        if not ada_alert:
+          st.info(
+              "ℹ️ Belum ada konten approved yang masuk masa H-2 jam dari"
+              " sekarang."
+          )
+
+    with tab_history:
+      st.markdown("### 📊 Statistik & Riwayat Seluruh Konten")
