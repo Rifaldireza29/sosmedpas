@@ -123,6 +123,7 @@ if menu == "📋 Daftar Konten & Jadwal":
                   "Status",
                   "Approval",
                   "Link Google Drive",
+                  "Catatan",
                   "Hapus?",
               ]
           ],
@@ -149,6 +150,7 @@ if menu == "📋 Daftar Konten & Jadwal":
               "Jadwal Upload",
               "Approval",
               "Link Google Drive",
+              "Catatan",
           ],
           use_container_width=True,
           hide_index=True,
@@ -264,13 +266,13 @@ elif menu == "➕ Tambah Konten Baru":
         )
 
 # ==========================================
-# MENU 3: APPROVAL DIREKSI
+# MENU 3: APPROVAL DIREKSI (Tabel Berkotak Rapi + Kolom Catatan & Approval)
 # ==========================================
 elif menu == "👔 Approval Direksi":
   st.subheader("👔 Panel Persetujuan (Approval) Direksi")
   st.markdown(
       "Direksi dapat memeriksa materi konten, mengecek aset Google Drive, dan"
-      " memberikan persetujuan dengan **satu kali klik**."
+      " memberikan persetujuan langsung di dalam tabel."
   )
 
   df = st.session_state["content_db"]
@@ -295,61 +297,72 @@ elif menu == "👔 Approval Direksi":
           "🎉 Tidak ada konten yang menunggu approval untuk tanggal tersebut."
       )
     else:
-      col_h1, col_h2, col_h3, col_h4, col_h5, col_h6 = st.columns(
-          [2, 1.2, 1.5, 1.5, 1.2, 1.5]
+      st.markdown(
+          "💡 **Cara Approval:** Pilih status pada kolom **Approval**"
+          " (`Approved` atau `Rejected`), lalu klik tombol **Simpan Keputusan"
+          " Direksi** di bawah tabel."
       )
-      col_h1.markdown("**Judul**")
-      col_h2.markdown("**Platform**")
-      col_h3.markdown("**Tipe**")
-      col_h4.markdown("**Jadwal**")
-      col_h5.markdown("**GDrive**")
-      col_h6.markdown("**Aksi Direksi**")
-      st.divider()
 
-      for index, row in pending_df.iterrows():
-        tipe_str = (
-            ", ".join(row["Tipe Konten"])
-            if isinstance(row["Tipe Konten"], list)
-            else row["Tipe Konten"]
-        )
+      # Persiapkan dataframe tabel approval
+      approval_table_df = pending_df.copy()
+      approval_table_df["Tipe Konten"] = approval_table_df["Tipe Konten"].apply(
+          lambda x: ", ".join(x) if isinstance(x, list) else x
+      )
+      approval_table_df["Pilih Approval"] = (
+          "Pending Approval"  # Kolom untuk direksi memilih
+      )
 
-        c_r1, c_r2, c_r3, c_r4, c_r5, c_r6 = st.columns(
-            [2, 1.2, 1.5, 1.5, 1.2, 1.5]
-        )
+      edited_approval_table = st.data_editor(
+          approval_table_df[
+              [
+                  "ID",
+                  "Judul Konten",
+                  "Platform",
+                  "Tipe Konten",
+                  "Jadwal Upload",
+                  "Link Google Drive",
+                  "Catatan",
+                  "Pilih Approval",
+              ]
+          ],
+          column_config={
+              "ID": None,
+              "Link Google Drive": st.column_config.LinkColumn(
+                  "Link Google Drive",
+                  help="Klik untuk membuka folder/file di GDrive",
+                  display_text="📂 Buka GDrive",
+              ),
+              "Pilih Approval": st.column_config.SelectboxColumn(
+                  "Approval",
+                  options=["Pending Approval", "Approved", "Rejected"],
+                  required=True,
+              ),
+          },
+          disabled=[
+              "Judul Konten",
+              "Platform",
+              "Tipe Konten",
+              "Jadwal Upload",
+              "Link Google Drive",
+              "Catatan",
+          ],
+          use_container_width=True,
+          hide_index=True,
+          key="approval_table_boxed",
+      )
 
-        c_r1.write(row["Judul Konten"])
-        c_r2.write(row["Platform"])
-        c_r3.write(tipe_str)
-        c_r4.write(row["Jadwal Upload"])
+      if st.button("💾 Simpan Keputusan Direksi", type="primary"):
+        for index, row in edited_approval_table.iterrows():
+          row_id = row["ID"]
+          aksi = row["Pilih Approval"]
 
-        if row["Link Google Drive"]:
-          c_r5.markdown(f"[📂 Buka]({row['Link Google Drive']})")
-        else:
-          c_r5.write("-")
+          if aksi != "Pending Approval":
+            st.session_state["content_db"].loc[
+                st.session_state["content_db"]["ID"] == row_id, "Approval"
+            ] = aksi
 
-        with c_r6:
-          btn_app, btn_rej = st.columns(2)
-          with btn_app:
-            if st.button("✅", key=f"app_{row['ID']}", help="Setujui (Approve)"):
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == row["ID"], "Approval"
-              ] = "Approved"
-              st.success(f" '{row['Judul Konten']}' disetujui!")
-              st.rerun()
-          with btn_rej:
-            if st.button("❌", key=f"rej_{row['ID']}", help="Tolak (Reject)"):
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == row["ID"], "Approval"
-              ] = "Rejected"
-              st.warning(f" '{row['Judul Konten']}' ditolak.")
-              st.rerun()
-
-        if row["Catatan"]:
-          st.caption(f"📝 Catatan: {row['Catatan']}")
-
-        st.markdown(
-            "<hr style='margin: 5px 0px; opacity: 0.2;'>", unsafe_allow_html=True
-        )
+        st.success("Keputusan approval berhasil disimpan!")
+        st.rerun()
 
     st.markdown("### 📜 Riwayat Semua Approval")
     history_approval = df[
@@ -467,6 +480,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
                   "Approval",
                   "Status",
                   "Jadwal Upload",
+                  "Catatan",
               ]
           ],
           use_container_width=True,
@@ -474,7 +488,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
       )
 
 # ==========================================
-# MENU 5: KIRIM WHATSAPP REMINDER (Pilihan 4 Nomor Tim)
+# MENU 5: KIRIM WHATSAPP REMINDER
 # ==========================================
 elif menu == "⏰ Kirim WhatsApp Reminder":
   st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp Tim")
@@ -497,12 +511,11 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
         scheduled_df["Judul Konten"] == pilihan_konten
     ].iloc[0]
 
-    # DAFTAR 4 NOMOR WHATSAPP TIM (Bisa diubah namanya/nomornya sesuai kebutuhan)
     daftar_tim = {
-        "Reza": "6281321686233",
-        "Emma": "628175731188",
-        "Gilang": "6281809830066",
-        "Surya": "6285793241231",
+        "Admin 1 - Budi (62812xxxxxx)": "6281234567891",
+        "Admin 2 - Siti (62813xxxxxx)": "6281345678902",
+        "Admin 3 - Andi (62818xxxxxx)": "6281845678903",
+        "Admin 4 - Dewi (62819xxxxxx)": "6281945678904",
     }
 
     pilihan_admin = st.selectbox(
@@ -510,7 +523,6 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
     )
     nomor_tujuan = daftar_tim[pilihan_admin]
 
-    # Preview nomor yang terpilih (bisa diedit jika perlu)
     nomor_final = st.text_input(
         "Nomor WhatsApp Tujuan (Format 62...):", value=nomor_tujuan
     )
