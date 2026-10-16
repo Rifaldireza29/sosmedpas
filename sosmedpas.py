@@ -499,10 +499,10 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     # DAFTAR 4 NOMOR WHATSAPP TIM (Bisa diubah namanya/nomornya sesuai kebutuhan)
     daftar_tim = {
-        "Admin 1 - Reza (62813xxxxxx)": "6281321686233",
-        "Admin 2 - Emma (62817xxxxxx)": "628175731188",
-        "Admin 3 - Gilang (62818xxxxxx)": "6281809830066",
-        "Admin 4 - Surya (62857xxxxxx)": "6285793241231",
+        "Reza": "6281321686233",
+        "Emma": "628175731188",
+        "Gilang": "6281809830066",
+        "Surya": "6285793241231",
     }
 
     pilihan_admin = st.selectbox(
