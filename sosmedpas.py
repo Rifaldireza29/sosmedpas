@@ -9,6 +9,31 @@ st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
 )
 
+# CSS Tambahan untuk Membuat Efek Kotak-Kotak Tabel yang Tegas dan Rapi
+st.markdown(
+    """
+    <style>
+    .styled-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+    .styled-table th, .styled-table td {
+        border: 1px solid #d6d6d6;
+        padding: 10px;
+        text-align: left;
+        vertical-align: middle;
+    }
+    .styled-table th {
+        background-color: #f0f2f6;
+        font-weight: bold;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 # Inisialisasi Database Sementara di Session State
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = pd.DataFrame(
@@ -31,8 +56,8 @@ if "Approval" not in st.session_state["content_db"].columns:
 
 st.title("📱 Social Media Content Planner & Scheduler")
 st.markdown(
-    "Kelola jadwal postingan, tabel interaktif rapi, filter tanggal, dan"
-    " Approval Direksi."
+    "Kelola jadwal postingan, tabel berkotak rapi, filter tanggal, dan Approval"
+    " Direksi."
 )
 
 # Sidebar untuk Navigasi Menu
@@ -266,7 +291,7 @@ elif menu == "➕ Tambah Konten Baru":
         )
 
 # ==========================================
-# MENU 3: APPROVAL DIREKSI (Tabel Berkotak Rapi + Sekali Klik Tombol Approval)
+# MENU 3: APPROVAL DIREKSI (Tabel Kotak-Kotak Bergaris Rapi)
 # ==========================================
 elif menu == "👔 Approval Direksi":
   st.subheader("👔 Panel Persetujuan (Approval) Direksi")
@@ -297,18 +322,22 @@ elif menu == "👔 Approval Direksi":
           "🎉 Tidak ada konten yang menunggu approval untuk tanggal tersebut."
       )
     else:
-      # Header Tabel Kotak Rapi untuk Approval
-      col_h1, col_h2, col_h3, col_h4, col_h5, col_h6, col_h7 = st.columns(
-          [1.8, 1.1, 1.3, 1.3, 1, 1.8, 1.3]
-      )
-      col_h1.markdown("**Judul**")
-      col_h2.markdown("**Platform**")
-      col_h3.markdown("**Tipe**")
-      col_h4.markdown("**Jadwal**")
-      col_h5.markdown("**GDrive**")
-      col_h6.markdown("**Catatan**")
-      col_h7.markdown("**Approval**")
-      st.divider()
+      # Render Tabel Berkotak Menggunakan HTML & CSS
+      table_html = """
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Judul</th>
+                        <th>Platform</th>
+                        <th>Tipe</th>
+                        <th>Jadwal</th>
+                        <th>GDrive</th>
+                        <th>Catatan</th>
+                        <th>Approval</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
 
       for index, row in pending_df.iterrows():
         tipe_str = (
@@ -316,44 +345,53 @@ elif menu == "👔 Approval Direksi":
             if isinstance(row["Tipe Konten"], list)
             else row["Tipe Konten"]
         )
-
-        c_r1, c_r2, c_r3, c_r4, c_r5, c_r6, c_r7 = st.columns(
-            [1.8, 1.1, 1.3, 1.3, 1, 1.8, 1.3]
+        gdrive_link = (
+            f'<a href="{row["Link Google Drive"]}" target="_blank">📂 Buka</a>'
+            if row["Link Google Drive"]
+            else "-"
         )
+        catatan_text = row["Catatan"] if row["Catatan"] else "-"
 
-        c_r1.write(row["Judul Konten"])
-        c_r2.write(row["Platform"])
-        c_r3.write(tipe_str)
-        c_r4.write(row["Jadwal Upload"])
+        table_html += f"""
+                <tr>
+                    <td><b>{row['Judul Konten']}</b></td>
+                    <td>{row['Platform']}</td>
+                    <td>{tipe_str}</td>
+                    <td>{row['Jadwal Upload']}</td>
+                    <td>{gdrive_link}</td>
+                    <td>{catatan_text}</td>
+                    <td id="action_{row['ID']}"></td>
+                </tr>
+                """
 
-        if row["Link Google Drive"]:
-          c_r5.markdown(f"[📂 Buka]({row['Link Google Drive']})")
-        else:
-          c_r5.write("-")
+      table_html += "</tbody></table>"
+      st.markdown(table_html, unsafe_allow_html=True)
 
-        c_r6.write(row["Catatan"] if row["Catatan"] else "-")
+      st.markdown("---")
+      st.markdown(
+          "**Tombol Aksi Approval Cepat (Sekali Klik):**"
+      )
 
-        # Tombol aksi Approval (Cukup sekali klik langsung beres)
-        with c_r7:
-          btn_app, btn_rej = st.columns(2)
-          with btn_app:
-            if st.button("✅", key=f"app_{row['ID']}", help="Setujui (Approve)"):
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == row["ID"], "Approval"
-              ] = "Approved"
-              st.success(f" '{row['Judul Konten']}' disetujui!")
-              st.rerun()
-          with btn_rej:
-            if st.button("❌", key=f"rej_{row['ID']}", help="Tolak (Reject)"):
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == row["ID"], "Approval"
-              ] = "Rejected"
-              st.warning(f" '{row['Judul Konten']}' ditolak.")
-              st.rerun()
-
-        st.markdown(
-            "<hr style='margin: 8px 0px; opacity: 0.2;'>", unsafe_allow_html=True
-        )
+      for index, row in pending_df.iterrows():
+        cols = st.columns([3, 1, 1])
+        with cols[0]:
+          st.write(
+              f"📌 **{row['Judul Konten']}** ({row['Platform']} - {row['Jadwal Upload']})"
+          )
+        with cols[1]:
+          if st.button("✅ Approve", key=f"app_{row['ID']}"):
+            st.session_state["content_db"].loc[
+                st.session_state["content_db"]["ID"] == row["ID"], "Approval"
+            ] = "Approved"
+            st.success(f"Konten '{row['Judul Konten']}' disetujui!")
+            st.rerun()
+        with cols[2]:
+          if st.button("❌ Reject", key=f"rej_{row['ID']}"):
+            st.session_state["content_db"].loc[
+                st.session_state["content_db"]["ID"] == row["ID"], "Approval"
+            ] = "Rejected"
+            st.warning(f"Konten '{row['Judul Konten']}' ditolak.")
+            st.rerun()
 
     st.markdown("### 📜 Riwayat Semua Approval")
     history_approval = df[
@@ -467,7 +505,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
               [
                   "Judul Konten",
                   "Platform",
-                    "Tipe Konten",
+                  "Tipe Konten",
                   "Approval",
                   "Status",
                   "Jadwal Upload",
@@ -520,7 +558,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
-        if isinstance(selected_row["Tipe Konten"], list)
+        if isinstance(selected_row["Tippy Konten"], list)
         else selected_row["Tipe Konten"]
     )
     pesan_wa = (
