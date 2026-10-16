@@ -25,7 +25,7 @@ if "content_db" not in st.session_state:
       ]
   )
 
-# PENGAMAN: Jika membuka aplikasi dan kolom 'Approval' belum ada di data lama, tambahkan otomatis
+# PENGAMAN: Jika membuka aplikasi dan kolom 'Approval' belum ada di data lama
 if "Approval" not in st.session_state["content_db"].columns:
   st.session_state["content_db"]["Approval"] = "Pending Approval"
 
@@ -153,28 +153,23 @@ if menu == "📋 Daftar Konten & Jadwal":
 
     st.divider()
 
-    st.subheader("📥 Backup Data ke Excel")
+    st.subheader("📥 Backup Data ke CSV (Bisa dibuka di Excel)")
 
 
-    def convert_df_to_excel(df_to_export):
-      output = io.BytesIO()
+    def convert_df_to_csv(df_to_export):
       export_data = df_to_export.copy()
       export_data["Tipe Konten"] = export_data["Tipe Konten"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else x
       )
-      with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        export_data.to_excel(writer, index=False, sheet_name="Jadwal Sosmed")
-      return output.getvalue()
+      return export_data.to_csv(index=False).encode("utf-8")
 
 
-    excel_file = convert_df_to_excel(df)
+    csv_file = convert_df_to_csv(df)
     st.download_button(
-        label="📥 Download Jadwal Konten (.xlsx)",
-        data=excel_file,
-        file_name=f"Backup_Jadwal_Sosmed_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-        mime=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
+        label="📥 Download Backup (.csv)",
+        data=csv_file,
+        file_name=f"Backup_Jadwal_Sosmed_{datetime.now().strftime('%Y-%m-%d')}.csv",
+        mime="text/csv",
     )
 
 # ==========================================
