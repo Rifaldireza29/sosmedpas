@@ -31,8 +31,7 @@ if "Approval" not in st.session_state["content_db"].columns:
 
 st.title("📱 Social Media Content Planner & Scheduler")
 st.markdown(
-    "Kelola jadwal postingan, link Google Drive interaktif, dan Approval"
-    " Direksi."
+    "Kelola jadwal postingan, tabel interaktif rapi, dan Approval Direksi."
 )
 
 # Sidebar untuk Navigasi Menu
@@ -90,66 +89,82 @@ if menu == "📋 Daftar Konten & Jadwal":
       st.warning("Tidak ada konten yang cocok dengan filter / pencarian.")
     else:
       st.markdown(
-          "Daftar seluruh konten beserta link Google Drive dan tombol aksi"
-          " langsung:"
+          "💡 **Cara Kelola:** Anda bisa langsung mengubah kolom **Status** (klik"
+          " pilihan *Draft/Scheduled/Posted*) atau centang kolom **Hapus?**, lalu"
+          " klik tombol **Simpan Perubahan** di bawah tabel."
       )
 
-      # Header Kolom Kustom untuk Tabel Manajemen
-      col_h1, col_h2, col_h3, col_h4, col_h5, col_h6, col_h7, col_h8 = st.columns(
-          [2, 1.2, 1.5, 1.5, 1, 1.2, 1.2, 1.2]
+      # Persiapkan dataframe khusus untuk tabel interaktif
+      edit_df = filtered_df.copy()
+      edit_df["Tipe Konten"] = edit_df["Tipe Konten"].apply(
+          lambda x: ", ".join(x) if isinstance(x, list) else x
       )
-      col_h1.markdown("**Judul**")
-      col_h2.markdown("**Platform**")
-      col_h3.markdown("**Tipe**")
-      col_h4.markdown("**Jadwal**")
-      col_h5.markdown("**Status**")
-      col_h6.markdown("**Approval**")
-      col_h7.markdown("**GDrive**")
-      col_h8.markdown("**Aksi**")
-      st.divider()
+      edit_df["Hapus?"] = False  # Tambah kolom checkbox untuk hapus
 
-      for index, row in filtered_df.iterrows():
-        tipe_str = (
-            ", ".join(row["Tipe Konten"])
-            if isinstance(row["Tipe Konten"], list)
-            else row["Tipe Konten"]
-        )
-
-        c_r1, c_r2, c_r3, c_r4, c_r5, c_r6, c_r7, c_r8 = st.columns(
-            [2, 1.2, 1.5, 1.5, 1, 1.2, 1.2, 1.2]
-        )
-
-        c_r1.write(row["Judul Konten"])
-        c_r2.write(row["Platform"])
-        c_r3.write(tipe_str)
-        c_r4.write(row["Jadwal Upload"])
-        c_r5.write(row["Status"])
-        c_r6.write(row["Approval"])
-
-        if row["Link Google Drive"]:
-          c_r7.markdown(f"[📂 Buka]({row['Link Google Drive']})")
-        else:
-          c_r7.write("-")
-
-        # Tombol Aksi per Baris (Post & Hapus disatukan rapi di kolom terakhir)
-        with c_r8:
-          sub_c1, sub_c2 = st.columns(2)
-          with sub_c1:
-            if st.button("✅", key=f"post_{row['ID']}", help="Tandai Posted"):
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == row["ID"], "Status"
-              ] = "Posted"
-              st.rerun()
-          with sub_c2:
-            if st.button("🗑️", key=f"del_{row['ID']}", help="Hapus Konten"):
-              st.session_state["content_db"] = st.session_state["content_db"][
-                  st.session_state["content_db"]["ID"] != row["ID"]
+      # Render Tabel Interaktif (St.data_editor)
+      edited_df = st.data_editor(
+          edit_df[
+              [
+                  "ID",
+                  "Judul Konten",
+                  "Platform",
+                  "Tipe Konten",
+                  "Jadwal Upload",
+                  "Status",
+                  "Approval",
+                  "Link Google Drive",
+                  "Hapus?",
               ]
-              st.rerun()
+          ],
+          column_config={
+              "ID": None,  # Sembunyikan kolom ID asli agar bersih
+              "Status": st.column_config.SelectboxColumn(
+                  "Status",
+                  options=["Draft", "Scheduled", "Posted"],
+                  required=True,
+              ),
+              "Link Google Drive": st.column_config.LinkColumn(
+                  "Link Google Drive",
+                  help="Klik untuk membuka folder/file di GDrive",
+                  display_text="📂 Buka GDrive",
+              ),
+              "Hapus?": st.column_config.CheckboxColumn(
+                  "Hapus?", default=False
+              ),
+          },
+          disabled=[
+              "Judul Konten",
+              "Platform",
+              "Tipe Konten",
+              "Jadwal Upload",
+              "Approval",
+              "Link Google Drive",
+          ],
+          use_container_width=True,
+          hide_index=True,
+          key="manager_table_editor",
+      )
 
-        st.markdown(
-            "<hr style='margin: 5px 0px; opacity: 0.2;'>", unsafe_allow_html=True
-        )
+      # Tombol Simpan Perubahan Tabel
+      if st.button("💾 Simpan Perubahan Tabel", type="primary"):
+        for index, row in edited_df.iterrows():
+          row_id = row["ID"]
+          new_status = row["Status"]
+          is_deleted = row["Hapus?"]
+
+          if is_deleted:
+            # Hapus data jika checkbox hapus dicentang
+            st.session_state["content_db"] = st.session_state["content_db"][
+                st.session_state["content_db"]["ID"] != row_id
+            ]
+          else:
+            # Update status jika diubah
+            st.session_state["content_db"].loc[
+                st.session_state["content_db"]["ID"] == row_id, "Status"
+            ] = new_status
+
+        st.success("Perubahan berhasil disimpan!")
+        st.rerun()
 
     st.divider()
 
@@ -377,3 +392,87 @@ elif menu == "🔔 Pusat Notifikasi & History":
 
     with tab_history:
       st.markdown("### 📊 Statistik & Riwayat Seluruh Konten")
+      total_konten = len(df)
+      total_posted = len(df[df["Status"] == "Posted"])
+      total_scheduled = len(df[df["Status"] == "Scheduled"])
+      total_draft = len(df[df["Status"] == "Draft"])
+
+      col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+      col_s1.metric("Total Konten", total_konten)
+      col_s2.metric("Sudah Posted", total_posted)
+      col_s3.metric("Terjadwal", total_scheduled)
+      col_s4.metric("Draft", total_draft)
+
+      st.markdown("<br>", unsafe_allow_html=True)
+      history_display = df.copy()
+      history_display["Tipe Konten"] = history_display["Tipe Konten"].apply(
+          lambda x: ", ".join(x) if isinstance(x, list) else x
+      )
+      st.dataframe(
+          history_display[
+              [
+                  "Judul Konten",
+                  "Platform",
+                  "Tipe Konten",
+                  "Approval",
+                  "Status",
+              ]
+          ],
+          use_container_width=True,
+          hide_index=True,
+      )
+
+# ==========================================
+# MENU 5: KIRIM WHATSAPP REMINDER
+# ==========================================
+elif menu == "⏰ Kirim WhatsApp Reminder":
+  st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp")
+  df = st.session_state["content_db"]
+  scheduled_df = df[df["Status"] == "Scheduled"]
+
+  if scheduled_df.empty:
+    st.info("Tidak ada konten dengan status 'Scheduled' untuk diingatkan.")
+  else:
+    pilihan_konten = st.selectbox(
+        "Pilih Konten yang Mau Diingatkan",
+        scheduled_df["Judul Konten"].tolist(),
+    )
+    selected_row = scheduled_df[
+        scheduled_df["Judul Konten"] == pilihan_konten
+    ].iloc[0]
+
+    nomor_tujuan = st.text_input(
+        "Nomor WhatsApp Admin (awali 62, contoh: 62812345678):",
+        value="6281234567890",
+    )
+
+    tipe_str = (
+        ", ".join(selected_row["Tipe Konten"])
+        if isinstance(selected_row["Tipe Konten"], list)
+        else selected_row["Tipe Konten"]
+    )
+    pesan_wa = (
+        "Halo! Reminder nih, konten sosial media *"
+        + str(selected_row["Judul Konten"])
+        + "* dengan format ("
+        + str(tipe_str)
+        + ") harus naik ke "
+        + str(selected_row["Platform"])
+        + " pada jam "
+        + str(selected_row["Jadwal Upload"])
+        + ". Jangan lupa cek asetnya ya: "
+        + str(selected_row["Link Google Drive"])
+    )
+
+    encoded_pesan = urllib.parse.quote(pesan_wa)
+    whatsapp_url = (
+        f"https://api.whatsapp.com/send?phone={nomor_tujuan}&text={encoded_pesan}"
+    )
+
+    st.markdown(
+        f'<a href="{whatsapp_url}" target="_blank"><button'
+        ' style="background-color:#25D366; color:white; padding:10px'
+        ' 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px;">📲'
+        " Buka WhatsApp & Kirim Pesan</button></a>",
+        unsafe_allow_html=True,
+    )
