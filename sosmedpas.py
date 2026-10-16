@@ -295,64 +295,61 @@ elif menu == "👔 Approval Direksi":
           "🎉 Tidak ada konten yang menunggu approval untuk tanggal tersebut."
       )
     else:
-      # Menggunakan st.data_editor untuk Approval agar stabil dan tidak blank
-      approval_table_df = pending_df.copy()
-      approval_table_df["Tipe Konten"] = approval_table_df["Tipe Konten"].apply(
-          lambda x: ", ".join(x) if isinstance(x, list) else x
+      col_h1, col_h2, col_h3, col_h4, col_h5, col_h6 = st.columns(
+          [2, 1.2, 1.5, 1.5, 1.2, 1.5]
       )
-      approval_table_df["Aksi Direksi"] = "Pending"
+      col_h1.markdown("**Judul**")
+      col_h2.markdown("**Platform**")
+      col_h3.markdown("**Tipe**")
+      col_h4.markdown("**Jadwal**")
+      col_h5.markdown("**GDrive**")
+      col_h6.markdown("**Aksi Direksi**")
+      st.divider()
 
-      edited_approval_table = st.data_editor(
-          approval_table_df[
-              [
-                  "ID",
-                  "Judul Konten",
-                  "Platform",
-                  "Tipe Konten",
-                  "Jadwal Upload",
-                  "Link Google Drive",
-                  "Catatan",
-                  "Aksi Direksi",
-              ]
-          ],
-          column_config={
-              "ID": None,
-              "Link Google Drive": st.column_config.LinkColumn(
-                  "Link Google Drive",
-                  help="Klik untuk membuka folder/file di GDrive",
-                  display_text="📂 Buka GDrive",
-              ),
-              "Aksi Direksi": st.column_config.SelectboxColumn(
-                  "Aksi Direksi",
-                  options=["Pending", "Approved", "Rejected"],
-                  required=True,
-              ),
-          },
-          disabled=[
-              "Judul Konten",
-              "Platform",
-              "Tipe Konten",
-              "Jadwal Upload",
-              "Link Google Drive",
-              "Catatan",
-          ],
-          use_container_width=True,
-          hide_index=True,
-          key="approval_table_clean",
-      )
+      for index, row in pending_df.iterrows():
+        tipe_str = (
+            ", ".join(row["Tipe Konten"])
+            if isinstance(row["Tipe Konten"], list)
+            else row["Tipe Konten"]
+        )
 
-      if st.button("💾 Simpan Keputusan Direksi", type="primary"):
-        for index, row in edited_approval_table.iterrows():
-          row_id = row["ID"]
-          aksi = row["Aksi Direksi"]
+        c_r1, c_r2, c_r3, c_r4, c_r5, c_r6 = st.columns(
+            [2, 1.2, 1.5, 1.5, 1.2, 1.5]
+        )
 
-          if aksi != "Pending":
-            st.session_state["content_db"].loc[
-                st.session_state["content_db"]["ID"] == row_id, "Approval"
-            ] = aksi
+        c_r1.write(row["Judul Konten"])
+        c_r2.write(row["Platform"])
+        c_r3.write(tipe_str)
+        c_r4.write(row["Jadwal Upload"])
 
-        st.success("Keputusan approval berhasil disimpan!")
-        st.rerun()
+        if row["Link Google Drive"]:
+          c_r5.markdown(f"[📂 Buka]({row['Link Google Drive']})")
+        else:
+          c_r5.write("-")
+
+        with c_r6:
+          btn_app, btn_rej = st.columns(2)
+          with btn_app:
+            if st.button("✅", key=f"app_{row['ID']}", help="Setujui (Approve)"):
+              st.session_state["content_db"].loc[
+                  st.session_state["content_db"]["ID"] == row["ID"], "Approval"
+              ] = "Approved"
+              st.success(f" '{row['Judul Konten']}' disetujui!")
+              st.rerun()
+          with btn_rej:
+            if st.button("❌", key=f"rej_{row['ID']}", help="Tolak (Reject)"):
+              st.session_state["content_db"].loc[
+                  st.session_state["content_db"]["ID"] == row["ID"], "Approval"
+              ] = "Rejected"
+              st.warning(f" '{row['Judul Konten']}' ditolak.")
+              st.rerun()
+
+        if row["Catatan"]:
+          st.caption(f"📝 Catatan: {row['Catatan']}")
+
+        st.markdown(
+            "<hr style='margin: 5px 0px; opacity: 0.2;'>", unsafe_allow_html=True
+        )
 
     st.markdown("### 📜 Riwayat Semua Approval")
     history_approval = df[
@@ -477,10 +474,15 @@ elif menu == "🔔 Pusat Notifikasi & History":
       )
 
 # ==========================================
-# MENU 5: KIRIM WHATSAPP REMINDER
+# MENU 5: KIRIM WHATSAPP REMINDER (Pilihan 4 Nomor Tim)
 # ==========================================
 elif menu == "⏰ Kirim WhatsApp Reminder":
-  st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp")
+  st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp Tim")
+  st.markdown(
+      "Pilih konten yang mau diingatkan, lalu pilih nama / nomor WhatsApp anggota"
+      " tim tujuan."
+  )
+
   df = st.session_state["content_db"]
   scheduled_df = df[df["Status"] == "Scheduled"]
 
@@ -495,9 +497,22 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
         scheduled_df["Judul Konten"] == pilihan_konten
     ].iloc[0]
 
-    nomor_tujuan = st.text_input(
-        "Nomor WhatsApp Admin (awali 62, contoh: 62812345678):",
-        value="6281234567890",
+    # DAFTAR 4 NOMOR WHATSAPP TIM (Bisa diubah namanya/nomornya sesuai kebutuhan)
+    daftar_tim = {
+        "Admin 1 - Reza (62813xxxxxx)": "6281321686233",
+        "Admin 2 - Emma (62817xxxxxx)": "628175731188",
+        "Admin 3 - Gilang (62818xxxxxx)": "6281809830066",
+        "Admin 4 - Surya (62857xxxxxx)": "6285793241231",
+    }
+
+    pilihan_admin = st.selectbox(
+        "Pilih Anggota Tim Tujuan WhatsApp:", list(daftar_tim.keys())
+    )
+    nomor_tujuan = daftar_tim[pilihan_admin]
+
+    # Preview nomor yang terpilih (bisa diedit jika perlu)
+    nomor_final = st.text_input(
+        "Nomor WhatsApp Tujuan (Format 62...):", value=nomor_tujuan
     )
 
     tipe_str = (
@@ -520,7 +535,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     encoded_pesan = urllib.parse.quote(pesan_wa)
     whatsapp_url = (
-        f"https://api.whatsapp.com/send?phone={nomor_tujuan}&text={encoded_pesan}"
+        f"https://api.whatsapp.com/send?phone={nomor_final}&text={encoded_pesan}"
     )
 
     st.markdown(
