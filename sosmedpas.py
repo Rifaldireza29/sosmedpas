@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
 )
 
-# Inisialisasi Database Sementara di Session State
+# Inisialisasi Database Sementara di Session State (Ditambah kolom Approval)
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = pd.DataFrame(
       columns=[
@@ -20,22 +20,24 @@ if "content_db" not in st.session_state:
           "Jadwal Upload",
           "Link Google Drive",
           "Status",
+          "Approval",
           "Catatan",
       ]
   )
 
 st.title("📱 Social Media Content Planner & Scheduler")
 st.markdown(
-    "Kelola jadwal postingan Instagram & TikTok, simpan link aset Google"
-    " Drive, dan pantau backup data dengan mudah."
+    "Kelola jadwal postingan, link Google Drive interaktif, dan Approval"
+    " Direksi."
 )
 
-# Sidebar untuk Navigasi Menu
+# Sidebar untuk Navigasi Menu (Ditambah Menu Approval)
 menu = st.sidebar.selectbox(
     "Pilih Menu",
     [
         "📋 Daftar Konten & Jadwal",
         "➕ Tambah Konten Baru",
+        "👔 Approval Direksi",
         "🔔 Pusat Notifikasi & History",
         "⏰ Kirim WhatsApp Reminder",
     ],
@@ -88,6 +90,7 @@ if menu == "📋 Daftar Konten & Jadwal":
           lambda x: ", ".join(x) if isinstance(x, list) else x
       )
 
+      # Tampilkan tabel interaktif dengan Link Google Drive yang bisa langsung diklik
       st.dataframe(
           display_df[
               [
@@ -96,10 +99,18 @@ if menu == "📋 Daftar Konten & Jadwal":
                   "Tipe Konten",
                   "Jadwal Upload",
                   "Status",
+                  "Approval",
                   "Link Google Drive",
                   "Catatan",
               ]
           ],
+          column_config={
+              "Link Google Drive": st.column_config.LinkColumn(
+                  "Link Google Drive",
+                  help="Klik untuk membuka folder/file di GDrive",
+                  display_text="📂 Buka GDrive",
+              )
+          },
           use_container_width=True,
           hide_index=True,
       )
@@ -112,9 +123,11 @@ if menu == "📋 Daftar Konten & Jadwal":
             else row["Tipe Konten"]
         )
         with st.expander(
-            f"📌 [{row['Status']}] {row['Judul Konten']} ({row['Platform']} - {tipe_str})"
+            f"📌 [{row['Approval']}] {row['Judul Konten']} ({row['Platform']} -"
+            f" {tipe_str})"
         ):
           st.write(f"**Jadwal:** {row['Jadwal Upload']}")
+          st.write(f"**Status Approval:** {row['Approval']}")
           if row["Link Google Drive"]:
             st.markdown(
                 f"🔗 [Buka Aset di Google Drive]({row['Link Google Drive']})"
@@ -209,6 +222,7 @@ elif menu == "➕ Tambah Konten Baru":
             "Jadwal Upload": waktu_gabung.strftime("%Y-%m-%d %H:%M"),
             "Link Google Drive": link_gdrive,
             "Status": status,
+            "Approval": "Pending Approval",  # Status awal pengajuan ke direksi
             "Catatan": catatan,
         }
 
@@ -219,7 +233,9 @@ elif menu == "➕ Tambah Konten Baru":
             ],
             ignore_index=True,
         )
-        st.success("Berhasil! Konten baru berhasil ditambahkan ke jadwal.")
+        st.success(
+            "Berhasil! Konten baru diajukan dan menunggu Approval Direksi."
+        )
       else:
         st.warning(
             "Mohon isi Judul, Link Google Drive, dan minimal pilih satu Tipe"
@@ -227,7 +243,70 @@ elif menu == "➕ Tambah Konten Baru":
         )
 
 # ==========================================
-# MENU 3: PUSAT NOTIFIKASI & HISTORY
+# MENU 3: APPROVAL DIREKSI
+# ==========================================
+elif menu == "👔 Approval Direksi":
+  st.subheader("👔 Panel Persetujuan (Approval) Direksi")
+  st.markdown(
+      "Direksi dapat memeriksa materi konten, mengecek aset Google Drive, dan"
+      " memberikan persetujuan."
+  )
+
+  df = st.session_state["content_db"]
+
+  if df.empty:
+    st.info("Belum ada konten yang diajukan.")
+  else:
+    pending_df = df[df["Approval"] == "Pending Approval"]
+
+    st.markdown("### ⏳ Konten Menunggu Persetujuan")
+    if pending_df.empty:
+      st.success("🎉 Tidak ada konten yang menunggu approval saat ini.")
+    else:
+      for index, row in pending_df.iterrows():
+        tipe_str = (
+            ", ".join(row["Tipe Konten"])
+            if isinstance(row["Tipe Konten"], list)
+            else row["Tipe Konten"]
+        )
+        with st.container():
+          st.markdown(f"### 📌 {row['Judul Konten']}")
+          c1, c2, c3 = st.columns(3)
+          c1.write(f"**Platform:** {row['Platform']} ({tipe_str})")
+          c2.write(f"**Jadwal:** {row['Jadwal Upload']}")
+          c3.write(f"**Status Saat Ini:** {row['Approval']}")
+
+          if row["Link Google Drive"]:
+            st.markdown(
+                f"🔗 [📂 Buka Aset di Google Drive]({row['Link Google Drive']})"
+            )
+          if row["Catatan"]:
+            st.info(f"**Catatan/Copywriting:** {row['Catatan']}")
+
+          # Tombol Approval Direksi
+          col_ap1, col_ap2, col_ap3 = st.columns([1, 1, 4])
+          if col_ap1.button("✅ Approve", key=f"app_{row['ID']}"):
+            st.session_state["content_db"].loc[
+                st.session_state["content_db"]["ID"] == row["ID"], "Approval"
+            ] = "Approved"
+            st.success(f"Konten '{row['Judul Konten']}' berhasil disetujui!")
+            st.rerun()
+          if col_ap2.button("❌ Reject", key=f"rej_{row['ID']}"):
+            st.session_state["content_db"].loc[
+                st.session_state["content_db"]["ID"] == row["ID"], "Approval"
+            ] = "Rejected"
+            st.warning(f"Konten '{row['Judul Konten']}' ditolak.")
+            st.rerun()
+          st.divider()
+
+    st.markdown("### 📜 Riwayat Semua Approval")
+    history_approval = df[
+        ["Judul Konten", "Platform", "Jadwal Upload", "Approval"]
+    ].copy()
+    st.dataframe(history_approval, use_container_width=True, hide_index=True)
+
+# ==========================================
+# MENU 4: PUSAT NOTIFIKASI & HISTORY
 # ==========================================
 elif menu == "🔔 Pusat Notifikasi & History":
   st.subheader("🔔 Pusat Notifikasi & Riwayat Konten")
@@ -241,9 +320,14 @@ elif menu == "🔔 Pusat Notifikasi & History":
     )
 
     with tab_notif:
-      scheduled_df = df[df["Status"] == "Scheduled"].copy()
+      scheduled_df = df[
+          (df["Status"] == "Scheduled") & (df["Approval"] == "Approved")
+      ].copy()
       if scheduled_df.empty:
-        st.success("🎉 Tidak ada peringatan mendesak saat ini. Semua aman!")
+        st.success(
+            "🎉 Tidak ada peringatan mendesak untuk konten yang sudah"
+            " di-approve."
+        )
       else:
         waktu_sekarang = datetime.now()
         ada_alert = False
@@ -256,7 +340,6 @@ elif menu == "🔔 Pusat Notifikasi & History":
           total_detik = selisih_waktu.total_seconds()
           sisa_menit = total_detik / 60
 
-          # Notifikasi muncul jika kurang dari 120 menit (2 jam) atau sudah lewat
           if sisa_menit <= 120:
             ada_alert = True
             tipe_str = (
@@ -282,16 +365,16 @@ elif menu == "🔔 Pusat Notifikasi & History":
                 f"• **Jadwal Target:** {row['Jadwal Upload']}\n"
                 f"• {countdown_text}"
             )
-            st.write(
-                f"🔗 [Akses File Google Drive"
-                f" Disini]({row['Link Google Drive']})"
+            st.markdown(
+                f"🔗 [📂 Buka Aset di Google"
+                f" Drive]({row['Link Google Drive']})"
             )
             st.divider()
 
         if not ada_alert:
           st.info(
-              "ℹ️ Belum ada konten yang masuk masa H-2 jam. Semua jadwal"
-              " masih berjarak lebih dari 2 jam dari sekarang."
+              "ℹ️ Belum ada konten approved yang masuk masa H-2 jam dari"
+              " sekarang."
           )
 
     with tab_history:
@@ -319,15 +402,21 @@ elif menu == "🔔 Pusat Notifikasi & History":
                   "Platform",
                   "Tipe Konten",
                   "Jadwal Upload",
+                  "Approval",
                   "Status",
               ]
           ],
+          column_config={
+              "Link Google Drive": st.column_config.LinkColumn(
+                  "Link Google Drive", display_text="📂 Buka GDrive"
+              )
+          },
           use_container_width=True,
           hide_index=True,
       )
 
 # ==========================================
-# MENU 4: KIRIM WHATSAPP REMINDER
+# MENU 5: KIRIM WHATSAPP REMINDER
 # ==========================================
 elif menu == "⏰ Kirim WhatsApp Reminder":
   st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp")
