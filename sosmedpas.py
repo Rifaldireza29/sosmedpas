@@ -621,7 +621,8 @@ elif menu == "🔔 Pusat Notifikasi & History":
           total_detik = selisih_waktu.total_seconds()
           sisa_menit = total_detik / 60
 
-          if sisa_menit <= 120:
+          # Logika: Muncul mulai dari 120 menit (2 jam) menuju jam H, sampai waktu terlewat (belum Posted)
+          if sisa_menit <= 120 and total_detik >= -720 * 60:
             ada_alert = True
             tipe_str = (
                 ", ".join(row["Tipe Konten"])
@@ -633,10 +634,11 @@ elif menu == "🔔 Pusat Notifikasi & History":
               jam_cd = int(total_detik // 3600)
               menit_cd = int((total_detik % 3600) // 60)
               detik_cd = int(total_detik % 60)
-              countdown_text = f"⏳ **Countdown:** {jam_cd:02d} jam {menit_cd:02d} menit {detik_cd:02d} detik lagi"
+              countdown_text = f"⏳ **Countdown:** {jam_cd:02d} jam {menit_cd:02d} menit {detik_cd:02d} detik lagi menuju jam H"
             else:
               countdown_text = (
-                  "🚨 **STATUS:** Waktu upload sudah lewat dari jadwal!"
+                  "🚨 **STATUS:** Waktu upload sudah lewat dari jadwal dan belum"
+                  " diubah ke 'Posted'!"
               )
 
             st.error(
@@ -655,8 +657,8 @@ elif menu == "🔔 Pusat Notifikasi & History":
 
         if not ada_alert:
           st.info(
-              "ℹ️ Belum ada konten approved yang masuk masa H-2 jam dari"
-              " sekarang."
+              "ℹ️ Belum ada konten approved yang masuk dalam rentang H-2 jam"
+              " menuju waktu upload."
           )
 
     with tab_history:
