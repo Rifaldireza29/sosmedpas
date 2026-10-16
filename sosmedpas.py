@@ -226,7 +226,7 @@ elif menu == "⏰ Reminder & Notifikasi (H-2 Jam)":
 
           nomor_tujuan = st.text_input(
               "Nomor WhatsApp Admin (awali 62):",
-              value="6281234567890",
+              value="6285793241231",
               key=f"wa_{row['ID']}",
           )
           pesan_wa = (
