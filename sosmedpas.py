@@ -256,7 +256,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
           total_detik = selisih_waktu.total_seconds()
           sisa_menit = total_detik / 60
 
-          # Jika kurang dari atau sama dengan 120 menit (2 jam) ATAU sudah lewat
+          # Notifikasi muncul jika kurang dari 120 menit (2 jam) atau sudah lewat
           if sisa_menit <= 120:
             ada_alert = True
             tipe_str = (
@@ -308,4 +308,69 @@ elif menu == "🔔 Pusat Notifikasi & History":
       col_s4.metric("Draft", total_draft)
 
       st.markdown("<br>", unsafe_allow_html=True)
-      history_display
+      history_display = df.copy()
+      history_display["Tipe Konten"] = history_display["Tipe Konten"].apply(
+          lambda x: ", ".join(x) if isinstance(x, list) else x
+      )
+      st.dataframe(
+          history_display[
+              [
+                  "Judul Konten",
+                  "Platform",
+                  "Tipe Konten",
+                  "Jadwal Upload",
+                  "Status",
+              ]
+          ],
+          use_container_width=True,
+          hide_index=True,
+      )
+
+# ==========================================
+# MENU 4: KIRIM WHATSAPP REMINDER
+# ==========================================
+elif menu == "⏰ Kirim WhatsApp Reminder":
+  st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp")
+  df = st.session_state["content_db"]
+  scheduled_df = df[df["Status"] == "Scheduled"]
+
+  if scheduled_df.empty:
+    st.info("Tidak ada konten dengan status 'Scheduled' untuk diingatkan.")
+  else:
+    pilihan_konten = st.selectbox(
+        "Pilih Konten yang Mau Diingatkan",
+        scheduled_df["Judul Konten"].tolist(),
+    )
+    selected_row = scheduled_df[
+        scheduled_df["Judul Konten"] == pilihan_konten
+    ].iloc[0]
+
+    nomor_tujuan = st.text_input(
+        "Nomor WhatsApp Admin (awali 62, contoh: 62812345678):",
+        value="6281234567890",
+    )
+
+    tipe_str = (
+        ", ".join(selected_row["Tipe Konten"])
+        if isinstance(selected_row["Tipe Konten"], list)
+        else selected_row["Tipe Konten"]
+    )
+    pesan_wa = (
+        f"Halo! Reminder nih, konten sosial media *{selected_row['Judul Konten']}*"
+        f" dengan format ({tipe_str}) harus naik ke"
+        f" {selected_row['Platform']} pada jam {selected_row['Jadwal Upload']}."
+        f" Jangan lupa cek asetnya ya: {selected_row['Link Google Drive']}"
+    )
+
+    encoded_pesan = urllib.parse.quote(pesan_wa)
+    whatsapp_url = (
+        f"https://api.whatsapp.com/send?phone={nomor_tujuan}&text={encoded_pesan}"
+    )
+
+    st.markdown(
+        f'<a href="{whatsapp_url}" target="_blank"><button'
+        ' style="background-color:#25D366; color:white; padding:10px'
+        ' 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px;">📲'
+        " Buka WhatsApp & Kirim Pesan</button></a>",
+        unsafe_allow_html=True,
+    )
