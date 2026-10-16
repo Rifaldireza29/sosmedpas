@@ -35,9 +35,10 @@ st.markdown(
     " Direksi."
 )
 
-# Sidebar untuk Navigasi Menu
-menu = st.sidebar.selectbox(
-    "Pilih Menu",
+# Sidebar untuk Navigasi Menu (Diubah menjadi tombol radio terpisah agar tinggal klik)
+st.sidebar.title("📌 Navigasi Menu")
+menu = st.sidebar.radio(
+    "Pilih Menu:",
     [
         "📋 Daftar Konten & Jadwal",
         "➕ Tambah Konten Baru",
