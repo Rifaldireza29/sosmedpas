@@ -1,5 +1,5 @@
 from datetime import date, datetime
-import io
+import sqlite3
 import urllib.parse
 import pandas as pd
 import streamlit as st
@@ -9,33 +9,109 @@ st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
 )
 
-# Inisialisasi Database Sementara di Session State
-if "content_db" not in st.session_state:
-  st.session_state["content_db"] = pd.DataFrame(
-      columns=[
-          "ID",
-          "Judul Konten",
-          "Platform",
-          "Tipe Konten",
-          "Jadwal Upload",
-          "Link Google Drive",
-          "Status",
-          "Approval",
-          "Catatan",
-      ]
-  )
+# NAMA FILE DATABASE SQLITE
+DB_NAME = "content_database.db"
 
-# PENGAMAN: Jika membuka aplikasi dan kolom 'Approval' belum ada di data lama
+
+# Fungsi untuk membuat koneksi dan tabel SQLite jika belum ada
+def init_db():
+  conn = sqlite3.connect(DB_NAME)
+  cursor = conn.cursor()
+  cursor.execute("""
+        CREATE TABLE IF NOT EXISTS content_db (
+            ID TEXT PRIMARY KEY,
+            Judul_Konten TEXT,
+            Platform TEXT,
+            Tipe_Konten TEXT,
+            Jadwal_Upload TEXT,
+            Link_Google_Drive TEXT,
+            Status TEXT,
+            Approval TEXT,
+            Catatan TEXT
+        )
+    """)
+  conn.commit()
+  conn.close()
+
+
+# Inisialisasi Database SQLite
+init_db()
+
+
+# Fungsi untuk memuat data dari SQLite ke Pandas DataFrame
+def load_database():
+  conn = sqlite3.connect(DB_NAME)
+  try:
+    df = pd.read_sql("SELECT * FROM content_db", conn)
+    # Kembalikan kolom Tipe_Konten menjadi list jika berupa string koma
+    if "Tipe_Konten" in df.columns:
+      df["Tipe_Konten"] = df["Tipe_Konten"].apply(
+          lambda x: x.split(", ") if isinstance(x, str) else []
+      )
+    # Ubah nama kolom agar sesuai dengan kode program
+    df = df.rename(
+        columns={
+            "Judul_Konten": "Judul Konten",
+            "Tipe_Konten": "Tipe Konten",
+            "Jadwal_Upload": "Jadwal Upload",
+            "Link_Google_Drive": "Link Google Drive",
+        }
+    )
+  except Exception as e:
+    df = pd.DataFrame(
+        columns=[
+            "ID",
+            "Judul Konten",
+            "Platform",
+            "Tipe Konten",
+            "Jadwal Upload",
+            "Link Google Drive",
+            "Status",
+            "Approval",
+            "Catatan",
+        ]
+    )
+  conn.close()
+  return df
+
+
+# Fungsi untuk menyimpan seluruh DataFrame ke SQLite
+def save_database(df):
+  conn = sqlite3.connect(DB_NAME)
+  df_to_save = df.copy()
+  # Ubah list Tipe Konten menjadi string koma
+  df_to_save["Tipe Konten"] = df_to_save["Tipe Konten"].apply(
+      lambda x: ", ".join(x) if isinstance(x, list) else str(x)
+  )
+  # Ubah nama kolom untuk database SQL
+  df_to_save = df_to_save.rename(
+      columns={
+          "Judul Konten": "Judul_Konten",
+          "Tipe Konten": "Tipe_Konten",
+          "Jadwal Upload": "Jadwal_Upload",
+          "Link Google Drive": "Link_Google_Drive",
+      }
+  )
+  df_to_save.to_sql("content_db", conn, if_exists="replace", index=False)
+  conn.close()
+
+
+# Inisialisasi Session State dengan Database SQLite
+if "content_db" not in st.session_state:
+  st.session_state["content_db"] = load_database()
+
+# PENGAMAN: Jika kolom 'Approval' belum ada
 if "Approval" not in st.session_state["content_db"].columns:
   st.session_state["content_db"]["Approval"] = "Pending Approval"
+  save_database(st.session_state["content_db"])
 
 st.title("📱 Social Media Content Planner & Scheduler")
 st.markdown(
     "Kelola jadwal postingan, tabel berkotak rapi, filter tanggal, dan Approval"
-    " Direksi."
+    " Direksi (Menggunakan Database SQLite)."
 )
 
-# Sidebar untuk Navigasi Menu (Diubah menjadi tombol radio terpisah agar tinggal klik)
+# Sidebar untuk Navigasi Menu
 st.sidebar.title("📌 Navigasi Menu")
 menu = st.sidebar.radio(
     "Pilih Menu:",
@@ -54,6 +130,8 @@ menu = st.sidebar.radio(
 if menu == "📋 Daftar Konten & Jadwal":
   st.subheader("📋 Tabel Jadwal & Manajemen Konten Sosial Media")
 
+  # Muat data terbaru dari SQLite
+  st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -110,7 +188,7 @@ if menu == "📋 Daftar Konten & Jadwal":
         tipe_str = (
             ", ".join(row["Tipe Konten"])
             if isinstance(row["Tipe Konten"], list)
-            else row["Tipe Konten"]
+            else str(row["Tipe Konten"])
         )
 
         with st.container(border=True):
@@ -122,7 +200,23 @@ if menu == "📋 Daftar Konten & Jadwal":
 
           with c2:
             st.markdown("🕒 **Status:**")
-            st.write(row["Status"])
+            new_stat = st.selectbox(
+                "Status",
+                ["Draft", "Scheduled", "Posted"],
+                index=(
+                    ["Draft", "Scheduled", "Posted"].index(row["Status"])
+                    if row["Status"] in ["Draft", "Scheduled", "Posted"]
+                    else 0
+                ),
+                key=f"stat_{row['ID']}",
+                label_visibility="collapsed",
+            )
+            if new_stat != row["Status"]:
+              st.session_state["content_db"].loc[
+                  st.session_state["content_db"]["ID"] == row["ID"], "Status"
+              ] = new_stat
+              save_database(st.session_state["content_db"])
+              st.rerun()
 
           with c3:
             st.markdown("📅 **Jadwal:**")
@@ -137,7 +231,11 @@ if menu == "📋 Daftar Konten & Jadwal":
 
           with c5:
             st.markdown("📝 **Catatan:**")
-            st.write(row["Catatan"] if row["Catatan"] else "-")
+            st.write(
+                row["Catatan"]
+                if pd.notna(row["Catatan"]) and row["Catatan"] != ""
+                else "-"
+            )
 
           with c6:
             st.markdown("⚡ **Aksi:**")
@@ -151,6 +249,7 @@ if menu == "📋 Daftar Konten & Jadwal":
                 st.session_state["content_db"] = st.session_state["content_db"][
                     st.session_state["content_db"]["ID"] != row["ID"]
                 ]
+                save_database(st.session_state["content_db"])
                 st.success(f"Konten '{row['Judul Konten']}' berhasil dihapus!")
                 st.rerun()
 
@@ -186,7 +285,7 @@ if menu == "📋 Daftar Konten & Jadwal":
               current_tipe = (
                   r_data["Tipe Konten"]
                   if isinstance(r_data["Tipe Konten"], list)
-                  else [r_data["Tipe Konten"]]
+                  else []
               )
               edit_tipe = st.multiselect(
                   "Tipe Konten",
@@ -203,7 +302,7 @@ if menu == "📋 Daftar Konten & Jadwal":
             with ec2:
               try:
                 parsed_dt = datetime.strptime(
-                    r_data["Jadwal Upload"], "%Y-%m-%d %H:%M"
+                    str(r_data["Jadwal Upload"]), "%Y-%m-%d %H:%M"
                 )
                 def_date = parsed_dt.date()
                 def_time = parsed_dt.time()
@@ -215,7 +314,12 @@ if menu == "📋 Daftar Konten & Jadwal":
               edit_jam = st.time_input("Jam Upload", value=def_time)
 
             edit_gdrive = st.text_input(
-                "Link Google Drive", value=r_data["Link Google Drive"]
+                "Link Google Drive",
+                value=(
+                    r_data["Link Google Drive"]
+                    if pd.notna(r_data["Link Google Drive"])
+                    else ""
+                ),
             )
 
             status_list = ["Draft", "Scheduled", "Posted"]
@@ -227,7 +331,12 @@ if menu == "📋 Daftar Konten & Jadwal":
             edit_status = st.selectbox("Status", status_list, index=s_idx)
 
             edit_catatan = st.text_area(
-                "Catatan Tambahan / Copywriting", value=r_data["Catatan"]
+                "Catatan Tambahan / Copywriting",
+                value=(
+                    r_data["Catatan"]
+                    if pd.notna(r_data["Catatan"]) and r_data["Catatan"] != ""
+                    else ""
+                ),
             )
 
             col_submit_e1, col_submit_e2 = st.columns(2)
@@ -260,8 +369,9 @@ if menu == "📋 Daftar Konten & Jadwal":
                   edit_status,
                   edit_catatan,
               ]
+              save_database(st.session_state["content_db"])
               del st.session_state["edit_id"]
-              st.success("Perubahan konten berhasil disimpan!")
+              st.success("Perubahan konten berhasil disimpan ke database SQLite!")
               st.rerun()
 
             if btn_cancel:
@@ -276,7 +386,7 @@ if menu == "📋 Daftar Konten & Jadwal":
     def convert_df_to_csv(df_to_export):
       export_data = df_to_export.copy()
       export_data["Tipe Konten"] = export_data["Tipe Konten"].apply(
-          lambda x: ", ".join(x) if isinstance(x, list) else x
+          lambda x: ", ".join(x) if isinstance(x, list) else str(x)
       )
       return export_data.to_csv(index=False).encode("utf-8")
 
@@ -327,8 +437,10 @@ elif menu == "➕ Tambah Konten Baru":
 
     if submit_button:
       if judul and link_gdrive and tipe_konten:
+        st.session_state["content_db"] = load_database()
+
         waktu_gabung = datetime.combine(tanggal_upload, jam_upload)
-        new_id = datetime.now().strftime("%Y%m%d%H%M%S")
+        new_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
 
         new_data = {
             "ID": new_id,
@@ -349,8 +461,9 @@ elif menu == "➕ Tambah Konten Baru":
             ],
             ignore_index=True,
         )
+        save_database(st.session_state["content_db"])
         st.success(
-            "Berhasil! Konten baru diajukan dan menunggu Approval Direksi."
+            "Berhasil! Konten baru tersimpan permanen di database SQLite."
         )
       else:
         st.warning(
@@ -368,6 +481,7 @@ elif menu == "👔 Approval Direksi":
       " catatan, dan memberikan persetujuan dengan **sekali klik**."
   )
 
+  st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -394,7 +508,7 @@ elif menu == "👔 Approval Direksi":
         tipe_str = (
             ", ".join(row["Tipe Konten"])
             if isinstance(row["Tipe Konten"], list)
-            else row["Tipe Konten"]
+            else str(row["Tipe Konten"])
         )
 
         with st.container(border=True):
@@ -410,14 +524,18 @@ elif menu == "👔 Approval Direksi":
 
           with c3:
             st.markdown("📂 **GDrive:**")
-            if row["Link Google Drive"]:
+            if pd.notna(row["Link Google Drive"]) and row["Link Google Drive"]:
               st.markdown(f"[Buka Link]({row['Link Google Drive']})")
             else:
               st.write("-")
 
           with c4:
             st.markdown("📝 **Catatan:**")
-            st.write(row["Catatan"] if row["Catatan"] else "-")
+            st.write(
+                row["Catatan"]
+                if pd.notna(row["Catatan"]) and row["Catatan"] != ""
+                else "-"
+            )
 
           with c5:
             st.markdown("⚡ **Approval:**")
@@ -430,6 +548,7 @@ elif menu == "👔 Approval Direksi":
                     st.session_state["content_db"]["ID"] == row["ID"],
                     "Approval",
                 ] = "Approved"
+                save_database(st.session_state["content_db"])
                 st.success("Disetujui!")
                 st.rerun()
             with btn_rej:
@@ -438,6 +557,7 @@ elif menu == "👔 Approval Direksi":
                     st.session_state["content_db"]["ID"] == row["ID"],
                     "Approval",
                 ] = "Rejected"
+                save_database(st.session_state["content_db"])
                 st.warning("Ditolak.")
                 st.rerun()
 
@@ -452,6 +572,7 @@ elif menu == "👔 Approval Direksi":
 # ==========================================
 elif menu == "🔔 Pusat Notifikasi & History":
   st.subheader("🔔 Pusat Notifikasi & Riwayat Konten")
+  st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -475,9 +596,13 @@ elif menu == "🔔 Pusat Notifikasi & History":
         ada_alert = False
 
         for index, row in scheduled_df.iterrows():
-          waktu_jadwal = datetime.strptime(
-              row["Jadwal Upload"], "%Y-%m-%d %H:%M"
-          )
+          try:
+            waktu_jadwal = datetime.strptime(
+                str(row["Jadwal Upload"]), "%Y-%m-%d %H:%M"
+            )
+          except:
+            continue
+
           selisih_waktu = waktu_jadwal - waktu_sekarang
           total_detik = selisih_waktu.total_seconds()
           sisa_menit = total_detik / 60
@@ -487,7 +612,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
             tipe_str = (
                 ", ".join(row["Tipe Konten"])
                 if isinstance(row["Tipe Konten"], list)
-                else row["Tipe Konten"]
+                else str(row["Tipe Konten"])
             )
 
             if total_detik > 0:
@@ -507,10 +632,11 @@ elif menu == "🔔 Pusat Notifikasi & History":
                 f"• **Jadwal Target:** {row['Jadwal Upload']}\n"
                 f"• {countdown_text}"
             )
-            st.markdown(
-                f"🔗 [📂 Buka Aset di Google"
-                f" Drive]({row['Link Google Drive']})"
-            )
+            if pd.notna(row["Link Google Drive"]):
+              st.markdown(
+                  f"🔗 [📂 Buka Aset di Google"
+                  f" Drive]({row['Link Google Drive']})"
+              )
             st.divider()
 
         if not ada_alert:
@@ -546,7 +672,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
       st.markdown("<br>", unsafe_allow_html=True)
       history_display = hist_df.copy()
       history_display["Tipe Konten"] = history_display["Tipe Konten"].apply(
-          lambda x: ", ".join(x) if isinstance(x, list) else x
+          lambda x: ", ".join(x) if isinstance(x, list) else str(x)
       )
       st.dataframe(
           history_display[
@@ -574,6 +700,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
       " tim tujuan."
   )
 
+  st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
   scheduled_df = df[df["Status"] == "Scheduled"]
 
@@ -607,7 +734,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
         if isinstance(selected_row["Tipe Konten"], list)
-        else selected_row["Tipe Konten"]
+        else str(selected_row["Tipe Konten"])
     )
     pesan_wa = (
         "Halo! Reminder nih, konten sosial media *"
