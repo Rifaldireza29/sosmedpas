@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
 )
 
-# Inisialisasi Database Sementara di Session State (Ditambah kolom Approval)
+# Inisialisasi Database Sementara di Session State
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = pd.DataFrame(
       columns=[
@@ -25,13 +25,17 @@ if "content_db" not in st.session_state:
       ]
   )
 
+# PENGAMAN: Jika membuka aplikasi dan kolom 'Approval' belum ada di data lama, tambahkan otomatis
+if "Approval" not in st.session_state["content_db"].columns:
+  st.session_state["content_db"]["Approval"] = "Pending Approval"
+
 st.title("📱 Social Media Content Planner & Scheduler")
 st.markdown(
     "Kelola jadwal postingan, link Google Drive interaktif, dan Approval"
     " Direksi."
 )
 
-# Sidebar untuk Navigasi Menu (Ditambah Menu Approval)
+# Sidebar untuk Navigasi Menu
 menu = st.sidebar.selectbox(
     "Pilih Menu",
     [
@@ -222,7 +226,7 @@ elif menu == "➕ Tambah Konten Baru":
             "Jadwal Upload": waktu_gabung.strftime("%Y-%m-%d %H:%M"),
             "Link Google Drive": link_gdrive,
             "Status": status,
-            "Approval": "Pending Approval",  # Status awal pengajuan ke direksi
+            "Approval": "Pending Approval",
             "Catatan": catatan,
         }
 
@@ -283,7 +287,6 @@ elif menu == "👔 Approval Direksi":
           if row["Catatan"]:
             st.info(f"**Catatan/Copywriting:** {row['Catatan']}")
 
-          # Tombol Approval Direksi
           col_ap1, col_ap2, col_ap3 = st.columns([1, 1, 4])
           if col_ap1.button("✅ Approve", key=f"app_{row['ID']}"):
             st.session_state["content_db"].loc[
@@ -401,16 +404,10 @@ elif menu == "🔔 Pusat Notifikasi & History":
                   "Judul Konten",
                   "Platform",
                   "Tipe Konten",
-                  "Jadwal Upload",
                   "Approval",
                   "Status",
               ]
           ],
-          column_config={
-              "Link Google Drive": st.column_config.LinkColumn(
-                  "Link Google Drive", display_text="📂 Buka GDrive"
-              )
-          },
           use_container_width=True,
           hide_index=True,
       )
