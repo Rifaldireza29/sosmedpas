@@ -234,8 +234,8 @@ if menu == "📋 Daftar Konten & Jadwal":
                 else "-"
             )
             catatan_pendek = (
-                catatan_full[:30] + "..."
-                if len(catatan_full) > 30
+                catatan_full[:10] + "..."
+                if len(catatan_full) > 10
                 else catatan_full
             )
 
