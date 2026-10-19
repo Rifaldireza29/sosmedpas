@@ -232,13 +232,12 @@ if menu == "📋 Daftar Konten & Jadwal":
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
             )
-            # Batas maksimal 30 karakter
             if len(catatan_full) > 30:
               catatan_pendek = catatan_full[:30] + "..."
             else:
               catatan_pendek = catatan_full
 
-            # Menampilkan teks singkat dengan tooltip pop-up saat kursor diarahkan
+            # Menggunakan unsafe_allow_html=True agar pop-up title aktif
             st.markdown(
                 f'<span title="{catatan_full}"'
                 ' style="cursor: pointer; border-bottom: 1px dotted'
