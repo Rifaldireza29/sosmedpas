@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import html
 import urllib.parse
 from google.oauth2.service_account import Credentials
 import gspread
@@ -232,16 +233,19 @@ if menu == "📋 Daftar Konten & Jadwal":
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
             )
-            if len(catatan_full) > 30:
-              catatan_pendek = catatan_full[:30] + "..."
-            else:
-              catatan_pendek = catatan_full
+            catatan_pendek = (
+                catatan_full[:30] + "..."
+                if len(catatan_full) > 30
+                else catatan_full
+            )
 
-            # Menggunakan unsafe_allow_html=True agar pop-up title aktif
+            safe_full = html.escape(catatan_full)
+            safe_short = html.escape(catatan_pendek)
+
             st.markdown(
-                f'<span title="{catatan_full}"'
+                f'<span title="{safe_full}"'
                 ' style="cursor: pointer; border-bottom: 1px dotted'
-                f' gray;">{catatan_pendek}</span>',
+                f' gray;">{safe_short}</span>',
                 unsafe_allow_html=True,
             )
 
@@ -532,10 +536,14 @@ elif menu == "👔 Approval Direksi":
                 if len(catatan_full) > 30
                 else catatan_full
             )
+
+            safe_full = html.escape(catatan_full)
+            safe_short = html.escape(catatan_pendek)
+
             st.markdown(
-                f'<span title="{catatan_full}"'
+                f'<span title="{safe_full}"'
                 ' style="cursor: pointer; border-bottom: 1px dotted'
-                f' gray;">{catatan_pendek}</span>',
+                f' gray;">{safe_short}</span>',
                 unsafe_allow_html=True,
             )
 
