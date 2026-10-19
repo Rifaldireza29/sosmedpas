@@ -233,7 +233,6 @@ if menu == "📋 Daftar Konten & Jadwal":
                 else "-"
             )
 
-            # Menggunakan st.popover agar rapi berbentuk tombol kecil dan pop-up saat diklik
             if catatan_full != "-":
               catatan_pendek = (
                   catatan_full[:25] + "..."
@@ -568,9 +567,8 @@ elif menu == "👔 Approval Direksi":
               f"📲 Kirim Reminder WA untuk: {row['Judul Konten']}"
           ):
             daftar_direksi = {
-                "Bapak/Ibu Pimpinan 1": "6281321686233",
-                "Direktur Konten": "628175731188",
-            }
+                "Pak Reza": "6281321686233",
+                            }
             pilih_dir = st.selectbox(
                 "Pilih Kontak Direksi:",
                 list(daftar_direksi.keys()),
@@ -582,11 +580,30 @@ elif menu == "👔 Approval Direksi":
                 key=f"no_dir_{row['ID']}",
             )
 
+            # Hitung sisa waktu / countdown untuk dimasukkan ke pesan WhatsApp
+            try:
+              waktu_jadwal = datetime.strptime(
+                  str(row["Jadwal Upload"]), "%Y-%m-%d %H:%M"
+              )
+              selisih = waktu_jadwal - datetime.now()
+              total_d = selisih.total_seconds()
+              if total_d > 0:
+                j = int(total_d // 3600)
+                m = int((total_d % 3600) // 60)
+                info_waktu = f"⏳ *Jadwal Tayang:* {row['Jadwal Upload']} (Kurang {j} jam {m} menit lagi)"
+              else:
+                info_waktu = (
+                    f"🚨 *Jadwal Tayang:* {row['Jadwal Upload']} (SUDAH"
+                    " LEWAT JADWAL!)"
+                )
+            except:
+              info_waktu = f"🕒 *Jadwal Tayang:* {row['Jadwal Upload']}"
+
             pesan_approval_wa = (
                 f"Halo *{pilih_dir}*, mohon bantuannya untuk memeriksa dan memberikan approval pada konten sosmed berikut:\n\n"
                 f"📌 *Judul:* {row['Judul Konten']}\n"
                 f"📱 *Platform:* {row['Platform']} ({tipe_str})\n"
-                f"🕒 *Jadwal:* {row['Jadwal Upload']}\n"
+                f"{info_waktu}\n"
                 f"🔗 *Aset GDrive:* {row['Link Google Drive']}\n\n"
                 f"Terima kasih!"
             )
@@ -777,9 +794,9 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
     ].iloc[0]
 
     daftar_tim = {
-        "Reza": "6281321686233",
-        "Emma": "628175731188",
-        "Gilang": "6281809830066",
+        "Pak Reza": "6281321686233",
+        "Bu Emma": "628175731188",
+        "Pak Gilang": "6281809830066",
         "Surya": "6281945678904",
     }
 
@@ -795,7 +812,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
         if isinstance(selected_row["Tipe Konten"], list)
-        else str(selected_row["Tipe Konten"])
+        else str(selected_row["Tpipe Konten"])
     )
     pesan_wa = (
         f"Halo! Reminder nih, konten sosial media *{selected_row['Judul Konten']}* "
