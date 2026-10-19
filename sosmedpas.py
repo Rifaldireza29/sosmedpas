@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 import urllib.parse
 from google.oauth2.service_account import Credentials
 import gspread
@@ -85,6 +85,10 @@ def save_database(df):
     sheet.update([header] + rows)
   except Exception as e:
     st.error(f"Gagal menyimpan ke Google Sheets: {e}")
+
+
+# Zona waktu WIB (UTC+7)
+WIB = timezone(timedelta(hours=7))
 
 
 # Inisialisasi Session State dengan Google Sheets
@@ -568,7 +572,7 @@ elif menu == "👔 Approval Direksi":
           ):
             daftar_direksi = {
                 "Pak Reza": "6281321686233",
-                            }
+            }
             pilih_dir = st.selectbox(
                 "Pilih Kontak Direksi:",
                 list(daftar_direksi.keys()),
@@ -580,24 +584,25 @@ elif menu == "👔 Approval Direksi":
                 key=f"no_dir_{row['ID']}",
             )
 
-            # Hitung sisa waktu / countdown untuk dimasukkan ke pesan WhatsApp
+            # Hitung sisa waktu / countdown akurat berdasarkan WIB (UTC+7)
             try:
               waktu_jadwal = datetime.strptime(
                   str(row["Jadwal Upload"]), "%Y-%m-%d %H:%M"
-              )
-              selisih = waktu_jadwal - datetime.now()
+              ).replace(tzinfo=WIB)
+              waktu_sekarang_wib = datetime.now(WIB)
+              selisih = waktu_jadwal - waktu_sekarang_wib
               total_d = selisih.total_seconds()
               if total_d > 0:
                 j = int(total_d // 3600)
                 m = int((total_d % 3600) // 60)
-                info_waktu = f"⏳ *Jadwal Tayang:* {row['Jadwal Upload']} (Kurang {j} jam {m} menit lagi)"
+                info_waktu = f"⏳ *Jadwal Tayang:* {row['Jadwal Upload']} WIB (Kurang {j} jam {m} menit lagi)"
               else:
                 info_waktu = (
-                    f"🚨 *Jadwal Tayang:* {row['Jadwal Upload']} (SUDAH"
+                    f"🚨 *Jadwal Tayang:* {row['Jadwal Upload']} WIB (SUDAH"
                     " LEWAT JADWAL!)"
                 )
             except:
-              info_waktu = f"🕒 *Jadwal Tayang:* {row['Jadwal Upload']}"
+              info_waktu = f"🕒 *Jadwal Tayang:* {row['Jadwal Upload']} WIB"
 
             pesan_approval_wa = (
                 f"Halo *{pilih_dir}*, mohon bantuannya untuk memeriksa dan memberikan approval pada konten sosmed berikut:\n\n"
@@ -662,7 +667,6 @@ elif menu == "🔔 Pusat Notifikasi & History":
             " di-approve."
         )
       else:
-        waktu_sekarang = datetime.now()
         ada_alert = False
 
         scheduled_df = scheduled_df.sort_values(
@@ -673,11 +677,12 @@ elif menu == "🔔 Pusat Notifikasi & History":
           try:
             waktu_jadwal = datetime.strptime(
                 str(row["Jadwal Upload"]), "%Y-%m-%d %H:%M"
-            )
+            ).replace(tzinfo=WIB)
+            waktu_sekarang_wib = datetime.now(WIB)
           except:
             continue
 
-          selisih_waktu = waktu_jadwal - waktu_sekarang
+          selisih_waktu = waktu_jadwal - waktu_sekarang_wib
           total_detik = selisih_waktu.total_seconds()
           sisa_menit = total_detik / 60
 
@@ -704,7 +709,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
                 f"🚨 **PERINGATAN UPLOAD DEKAT!**\n\n"
                 f"• **Judul:** {row['Judul Konten']}\n"
                 f"• **Platform & Format:** {row['Platform']} ({tipe_str})\n"
-                f"• **Jadwal Target:** {row['Jadwal Upload']}\n"
+                f"• **Jadwal Target:** {row['Jadwal Upload']} WIB\n"
                 f"• {countdown_text}"
             )
             if pd.notna(row["Link Google Drive"]):
@@ -812,12 +817,12 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
         if isinstance(selected_row["Tipe Konten"], list)
-        else str(selected_row["Tpipe Konten"])
+        else str(selected_row["Tipe Konten"])
     )
     pesan_wa = (
         f"Halo! Reminder nih, konten sosial media *{selected_row['Judul Konten']}* "
         f"dengan format ({tipe_str}) harus naik ke {selected_row['Platform']} "
-        f"pada jam {selected_row['Jadwal Upload']}. Jangan lupa cek asetnya ya: {selected_row['Link Google Drive']}"
+        f"pada jam {selected_row['Jadwal Upload']} WIB. Jangan lupa cek asetnya ya: {selected_row['Link Google Drive']}"
     )
 
     encoded_pesan = urllib.parse.quote(pesan_wa)
