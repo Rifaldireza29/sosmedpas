@@ -1,6 +1,7 @@
 from datetime import date, datetime
-import sqlite3
 import urllib.parse
+from google.oauth2.service_account import Credentials
+import gspread
 import pandas as pd
 import streamlit as st
 
@@ -9,54 +10,50 @@ st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
 )
 
-# NAMA FILE DATABASE SQLITE
-DB_NAME = "content_database.db"
+# Konfigurasi Akses Google Sheets via st.secrets
+SCOPE = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
 
 
-# Fungsi untuk membuat koneksi dan tabel SQLite jika belum ada
-def init_db():
-  conn = sqlite3.connect(DB_NAME)
-  cursor = conn.cursor()
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS content_db (
-            ID TEXT PRIMARY KEY,
-            Judul_Konten TEXT,
-            Platform TEXT,
-            Tipe_Konten TEXT,
-            Jadwal_Upload TEXT,
-            Link_Google_Drive TEXT,
-            Status TEXT,
-            Approval TEXT,
-            Catatan TEXT
-        )
-    """)
-  conn.commit()
-  conn.close()
+def get_gspread_client():
+  creds_dict = dict(st.secrets["gcp_service_account"])
+  creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPE)
+  client = gspread.authorize(creds)
+  return client
 
 
-# Inisialisasi Database SQLite
-init_db()
-
-
-# Fungsi untuk memuat data dari SQLite ke Pandas DataFrame
+# Fungsi untuk memuat data dari Google Sheets ke Pandas DataFrame
 def load_database():
-  conn = sqlite3.connect(DB_NAME)
   try:
-    df = pd.read_sql("SELECT * FROM content_db", conn)
-    if "Tipe_Konten" in df.columns:
-      df["Tipe_Konten"] = df["Tipe_Konten"].apply(
-          lambda x: x.split(", ") if isinstance(x, str) else []
+    client = get_gspread_client()
+    sheet = client.open("Content Database Sosmed").sheet1
+    data = sheet.get_all_records()
+    df = pd.DataFrame(data)
+
+    if df.empty:
+      df = pd.DataFrame(
+          columns=[
+              "ID",
+              "Judul Konten",
+              "Platform",
+              "Tipe Konten",
+              "Jadwal Upload",
+              "Link Google Drive",
+              "Status",
+              "Approval",
+              "Catatan",
+          ]
       )
-    df = df.rename(
-        columns={
-            "Judul_Konten": "Judul Konten",
-            "Tipe_Konten": "Tipe Konten",
-            "Jadwal_Upload": "Jadwal Upload",
-            "Link_Google_Drive": "Link Google Drive",
-        }
-    )
+    else:
+      if "Tipe Konten" in df.columns:
+        df["Tipe Konten"] = df["Tipe Konten"].apply(
+            lambda x: x.split(", ") if isinstance(x, str) and x else []
+        )
+    return df
   except Exception as e:
-    df = pd.DataFrame(
+    return pd.DataFrame(
         columns=[
             "ID",
             "Judul Konten",
@@ -69,41 +66,35 @@ def load_database():
             "Catatan",
         ]
     )
-  conn.close()
-  return df
 
 
-# Fungsi untuk menyimpan seluruh DataFrame ke SQLite
+# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets
 def save_database(df):
-  conn = sqlite3.connect(DB_NAME)
-  df_to_save = df.copy()
-  df_to_save["Tipe Konten"] = df_to_save["Tipe Konten"].apply(
-      lambda x: ", ".join(x) if isinstance(x, list) else str(x)
-  )
-  df_to_save = df_to_save.rename(
-      columns={
-          "Judul Konten": "Judul_Konten",
-          "Tipe Konten": "Tipe_Konten",
-          "Jadwal Upload": "Jadwal_Upload",
-          "Link Google Drive": "Link_Google_Drive",
-      }
-  )
-  df_to_save.to_sql("content_db", conn, if_exists="replace", index=False)
-  conn.close()
+  try:
+    client = get_gspread_client()
+    sheet = client.open("Content Database Sosmed").sheet1
+
+    df_to_save = df.copy()
+    df_to_save["Tipe Konten"] = df_to_save["Tipe Konten"].apply(
+        lambda x: ", ".join(x) if isinstance(x, list) else str(x)
+    )
+
+    sheet.clear()
+    header = list(df_to_save.columns)
+    rows = df_to_save.values.tolist()
+    sheet.update([header] + rows)
+  except Exception as e:
+    st.error(f"Gagal menyimpan ke Google Sheets: {e}")
 
 
-# Inisialisasi Session State dengan Database SQLite
+# Inisialisasi Session State dengan Google Sheets
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = load_database()
-
-if "Approval" not in st.session_state["content_db"].columns:
-  st.session_state["content_db"]["Approval"] = "Pending Approval"
-  save_database(st.session_state["content_db"])
 
 st.title("📱 Social Media Content Planner & Scheduler")
 st.markdown(
     "Kelola jadwal postingan, tabel berkotak rapi, filter tanggal, dan Approval"
-    " Direksi (Menggunakan Database SQLite)."
+    " Direksi (Terhubung ke Google Sheets)."
 )
 
 # Sidebar untuk Navigasi Menu
@@ -129,7 +120,7 @@ if menu == "📋 Daftar Konten & Jadwal":
   with col_btn:
     if st.button("🔄 Refresh Data", key="ref_menu1"):
       st.session_state["content_db"] = load_database()
-      st.success("Data berhasil diperbarui!")
+      st.success("Data berhasil diperbarui dari Google Sheets!")
       st.rerun()
 
   st.session_state["content_db"] = load_database()
@@ -176,6 +167,10 @@ if menu == "📋 Daftar Konten & Jadwal":
           filtered_df["Judul Konten"]
           .str.contains(search_query, case=False, na=False)
       ]
+
+    # Urutkan Z-A (Terbaru ke Terlama berdasarkan jadwal)
+    if not filtered_df.empty:
+      filtered_df = filtered_df.sort_values(by="Jadwal Upload", ascending=False)
 
     if filtered_df.empty:
       st.warning("Tidak ada konten yang cocok dengan filter / pencarian tanggal.")
@@ -366,36 +361,12 @@ if menu == "📋 Daftar Konten & Jadwal":
 
               save_database(db_df)
               del st.session_state["edit_id"]
-              st.success(
-                  "Perubahan konten berhasil disimpan ke database SQLite!"
-              )
+              st.success("Perubahan konten berhasil disimpan ke Google Sheets!")
               st.rerun()
 
             if btn_cancel:
               del st.session_state["edit_id"]
               st.rerun()
-
-    st.divider()
-
-    st.subheader("📥 Backup Data ke CSV (Bisa dibuka di Excel)")
-
-
-    def convert_df_to_csv(df_to_export):
-      export_data = df_to_export.copy()
-      export_data["ID"] = range(1, len(export_data) + 1)
-      export_data["Tipe Konten"] = export_data["Tipe Konten"].apply(
-          lambda x: ", ".join(x) if isinstance(x, list) else str(x)
-      )
-      return export_data.to_csv(index=False).encode("utf-8")
-
-
-    csv_file = convert_df_to_csv(df)
-    st.download_button(
-        label="📥 Download Backup (.csv)",
-        data=csv_file,
-        file_name=f"Backup_Jadwal_Sosmed_{datetime.now().strftime('%Y-%m-%d')}.csv",
-        mime="text/csv",
-    )
 
 # ==========================================
 # MENU 2: TAMBAH KONTEN BARU
@@ -461,7 +432,7 @@ elif menu == "➕ Tambah Konten Baru":
         )
         save_database(st.session_state["content_db"])
         st.success(
-            "Berhasil! Konten baru tersimpan permanen di database SQLite."
+            "Berhasil! Konten baru tersimpan permanen di Google Sheets."
         )
       else:
         st.warning(
@@ -475,7 +446,7 @@ elif menu == "➕ Tambah Konten Baru":
 elif menu == "👔 Approval Direksi":
   col_title_app, col_btn_app = st.columns([4, 1])
   with col_title_app:
-    st.subheader("👔 Panel Persetujuan (Approval) Direksi")
+    st.subheader("👔 Panel Persetujuan (Approval) Direksi & WhatsApp Reminder")
   with col_btn_app:
     if st.button("🔄 Refresh Data", key="ref_menu3"):
       st.session_state["content_db"] = load_database()
@@ -484,7 +455,7 @@ elif menu == "👔 Approval Direksi":
 
   st.markdown(
       "Direksi dapat memeriksa materi konten, mengecek aset Google Drive,"
-      " catatan, dan memberikan persetujuan dengan **sekali klik**."
+      " memberikan persetujuan, atau mengirim pengingat via WhatsApp."
   )
 
   st.session_state["content_db"] = load_database()
@@ -494,6 +465,8 @@ elif menu == "👔 Approval Direksi":
     st.info("Belum ada konten yang diajukan.")
   else:
     pending_df = df[df["Approval"] == "Pending Approval"].copy()
+    if not pending_df.empty:
+      pending_df = pending_df.sort_values(by="Jadwal Upload", ascending=False)
 
     pilih_tgl_app = st.date_input(
         "📅 Filter Tanggal Pengajuan", value=None, key="filter_tgl_app"
@@ -504,7 +477,7 @@ elif menu == "👔 Approval Direksi":
           pending_df["Jadwal Upload"].str.startswith(tgl_str)
       ]
 
-    st.markdown("### ⏳ Konten Menunggu Persetujuan")
+    st.markdown("### ⏳ Konten Menunggu Persetujuan (Pending)")
     if pending_df.empty:
       st.success(
           "🎉 Tidak ada konten yang menunggu approval untuk tanggal tersebut."
@@ -518,7 +491,7 @@ elif menu == "👔 Approval Direksi":
         )
 
         with st.container(border=True):
-          c1, c2, c3, c4, c5 = st.columns([2, 1.2, 1.2, 1.2, 1.4])
+          c1, c2, c3, c4, c5 = st.columns([1.8, 1.1, 1.1, 1, 1.5])
 
           with c1:
             st.markdown(f"📌 **{row['Judul Konten']}**")
@@ -544,7 +517,7 @@ elif menu == "👔 Approval Direksi":
             )
 
           with c5:
-            st.markdown("⚡ **Approval:**")
+            st.markdown("⚡ **Aksi & Approval:**")
             btn_app, btn_rej = st.columns(2)
             with btn_app:
               if st.button(
@@ -567,10 +540,52 @@ elif menu == "👔 Approval Direksi":
                 st.warning("Ditolak.")
                 st.rerun()
 
+          with st.expander(
+              f"📲 Kirim Reminder WA untuk: {row['Judul Konten']}"
+          ):
+            daftar_direksi = {
+                "Bapak/Ibu Pimpinan 1": "6281321686233",
+                "Direktur Konten": "628175731188",
+            }
+            pilih_dir = st.selectbox(
+                "Pilih Kontak Direksi:",
+                list(daftar_direksi.keys()),
+                key=f"sel_dir_{row['ID']}",
+            )
+            no_dir = st.text_input(
+                "Nomor WhatsApp Tujuan:",
+                value=daftar_direksi[pilih_dir],
+                key=f"no_dir_{row['ID']}",
+            )
+
+            pesan_approval_wa = (
+                f"Halo *{pilih_dir}*, mohon bantuannya untuk memeriksa dan memberikan approval pada konten sosmed berikut:\n\n"
+                f"📌 *Judul:* {row['Judul Konten']}\n"
+                f"📱 *Platform:* {row['Platform']} ({tipe_str})\n"
+                f"🕒 *Jadwal:* {row['Jadwal Upload']}\n"
+                f"🔗 *Aset GDrive:* {row['Link Google Drive']}\n\n"
+                f"Terima kasih!"
+            )
+            encoded_p_wa = urllib.parse.quote(pesan_approval_wa)
+            wa_approval_url = f"https://api.whatsapp.com/send?phone={no_dir}&text={encoded_p_wa}"
+
+            st.markdown(
+                f'<a href="{wa_approval_url}" target="_blank"><button'
+                ' style="background-color:#25D366; color:white; padding:8px'
+                ' 16px; border:none; border-radius:5px; cursor:pointer;'
+                ' font-size:14px;">📲 Kirim WhatsApp Reminder'
+                " Approval</button></a>",
+                unsafe_allow_html=True,
+            )
+
     st.markdown("### 📜 Riwayat Semua Approval")
     history_approval = df[
         ["Judul Konten", "Platform", "Jadwal Upload", "Approval"]
     ].copy()
+    if not history_approval.empty:
+      history_approval = history_approval.sort_values(
+          by="Jadwal Upload", ascending=False
+      )
     st.dataframe(history_approval, use_container_width=True, hide_index=True)
 
 # ==========================================
@@ -609,6 +624,10 @@ elif menu == "🔔 Pusat Notifikasi & History":
         waktu_sekarang = datetime.now()
         ada_alert = False
 
+        scheduled_df = scheduled_df.sort_values(
+            by="Jadwal Upload", ascending=True
+        )
+
         for index, row in scheduled_df.iterrows():
           try:
             waktu_jadwal = datetime.strptime(
@@ -621,7 +640,6 @@ elif menu == "🔔 Pusat Notifikasi & History":
           total_detik = selisih_waktu.total_seconds()
           sisa_menit = total_detik / 60
 
-          # Logika: Muncul mulai dari 120 menit (2 jam) menuju jam H, sampai waktu terlewat (belum Posted)
           if sisa_menit <= 120 and total_detik >= -720 * 60:
             ada_alert = True
             tipe_str = (
@@ -673,6 +691,9 @@ elif menu == "🔔 Pusat Notifikasi & History":
         hist_df = hist_df[
             hist_df["Jadwal Upload"].str.startswith(tgl_hist_str)
         ]
+
+      if not hist_df.empty:
+        hist_df = hist_df.sort_values(by="Jadwal Upload", ascending=False)
 
       total_konten = len(hist_df)
       total_posted = len(hist_df[hist_df["Status"] == "Posted"])
