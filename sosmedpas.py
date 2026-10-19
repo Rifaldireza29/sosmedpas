@@ -227,10 +227,23 @@ if menu == "📋 Daftar Konten & Jadwal":
 
           with c5:
             st.markdown("📝 **Catatan:**")
-            st.write(
-                row["Catatan"]
+            catatan_full = (
+                str(row["Catatan"])
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
+            )
+            # Batas maksimal 30 karakter
+            if len(catatan_full) > 30:
+              catatan_pendek = catatan_full[:30] + "..."
+            else:
+              catatan_pendek = catatan_full
+
+            # Menampilkan teks singkat dengan tooltip pop-up saat kursor diarahkan
+            st.markdown(
+                f'<span title="{catatan_full}"'
+                ' style="cursor: pointer; border-bottom: 1px dotted'
+                f' gray;">{catatan_pendek}</span>',
+                unsafe_allow_html=True,
             )
 
           with c6:
@@ -510,10 +523,21 @@ elif menu == "👔 Approval Direksi":
 
           with c4:
             st.markdown("📝 **Catatan:**")
-            st.write(
-                row["Catatan"]
+            catatan_full = (
+                str(row["Catatan"])
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
+            )
+            catatan_pendek = (
+                catatan_full[:30] + "..."
+                if len(catatan_full) > 30
+                else catatan_full
+            )
+            st.markdown(
+                f'<span title="{catatan_full}"'
+                ' style="cursor: pointer; border-bottom: 1px dotted'
+                f' gray;">{catatan_pendek}</span>',
+                unsafe_allow_html=True,
             )
 
           with c5:
