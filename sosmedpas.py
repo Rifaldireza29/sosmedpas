@@ -1,5 +1,4 @@
 from datetime import date, datetime
-import html
 import urllib.parse
 from google.oauth2.service_account import Credentials
 import gspread
@@ -233,21 +232,19 @@ if menu == "📋 Daftar Konten & Jadwal":
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
             )
-            catatan_pendek = (
-                catatan_full[:10] + "..."
-                if len(catatan_full) > 10
-                else catatan_full
-            )
 
-            safe_full = html.escape(catatan_full)
-            safe_short = html.escape(catatan_pendek)
-
-            st.markdown(
-                f'<span title="{safe_full}"'
-                ' style="cursor: pointer; border-bottom: 1px dotted'
-                f' gray;">{safe_short}</span>',
-                unsafe_allow_html=True,
-            )
+            # Menggunakan st.popover agar rapi berbentuk tombol kecil dan pop-up saat diklik
+            if catatan_full != "-":
+              catatan_pendek = (
+                  catatan_full[:25] + "..."
+                  if len(catatan_full) > 25
+                  else catatan_full
+              )
+              with st.popover(f"📄 {catatan_pendek}"):
+                st.markdown("**Isi Catatan Lengkap:**")
+                st.write(catatan_full)
+            else:
+              st.write("-")
 
           with c6:
             st.markdown("⚡ **Aksi:**")
@@ -531,21 +528,17 @@ elif menu == "👔 Approval Direksi":
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
             )
-            catatan_pendek = (
-                catatan_full[:30] + "..."
-                if len(catatan_full) > 30
-                else catatan_full
-            )
-
-            safe_full = html.escape(catatan_full)
-            safe_short = html.escape(catatan_pendek)
-
-            st.markdown(
-                f'<span title="{safe_full}"'
-                ' style="cursor: pointer; border-bottom: 1px dotted'
-                f' gray;">{safe_short}</span>',
-                unsafe_allow_html=True,
-            )
+            if catatan_full != "-":
+              catatan_pendek = (
+                  catatan_full[:25] + "..."
+                  if len(catatan_full) > 25
+                  else catatan_full
+              )
+              with st.popover(f"📄 {catatan_pendek}"):
+                st.markdown("**Isi Catatan Lengkap:**")
+                st.write(catatan_full)
+            else:
+              st.write("-")
 
           with c5:
             st.markdown("⚡ **Aksi & Approval:**")
