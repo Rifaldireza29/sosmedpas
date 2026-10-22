@@ -244,15 +244,27 @@ if menu == "📋 Daftar Konten & Jadwal":
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
             )
+
             if catatan_full != "-":
               catatan_pendek = (
-                  catatan_full[:25] + "..."
-                  if len(catatan_full) > 25
+                  catatan_full[:20] + "..."
+                  if len(catatan_full) > 20
                   else catatan_full
               )
+              # Menggunakan popover yang berisi st.text_area agar gampang dicopy di HP maupun laptop
               with st.popover(f"📄 {catatan_pendek}"):
-                st.markdown("**Isi Catatan Lengkap:**")
-                st.write(catatan_full)
+                st.markdown("**📋 Salin Catatan / Copywriting:**")
+                st.text_area(
+                    "Isi Catatan",
+                    value=catatan_full,
+                    height=150,
+                    key=f"txt_area_copy_{row['ID']}",
+                    label_visibility="collapsed",
+                )
+                st.caption(
+                    "💡 *Tip:* Tekan lama teks di atas (di HP) atau blok & copy"
+                    " (di laptop) untuk menyalin."
+                )
             else:
               st.write("-")
 
@@ -545,7 +557,13 @@ elif menu == "👔 Approval Direksi":
               )
               with st.popover(f"📄 {catatan_pendek}"):
                 st.markdown("**Isi Catatan Lengkap:**")
-                st.write(catatan_full)
+                st.text_area(
+                    "Isi Catatan",
+                    value=catatan_full,
+                    height=120,
+                    key=f"txt_app_{row['ID']}",
+                    label_visibility="collapsed",
+                )
             else:
               st.write("-")
 
