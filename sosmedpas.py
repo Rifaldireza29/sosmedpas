@@ -8,7 +8,7 @@ import streamlit as st
 # Konfigurasi halaman
 st.set_page_config(
     page_title="Social Media Planner & Scheduler", page_icon="📱", layout="wide"
-]
+)
 
 # Konfigurasi Akses Google Sheets via st.secrets
 SCOPE = [
@@ -123,7 +123,6 @@ if menu == "📋 Daftar Konten & Jadwal":
     st.subheader("📋 Tabel Jadwal & Manajemen Konten Sosial Media")
   with col_btn:
     if st.button("🔄 Refresh Data", key="ref_menu1"):
-      # Bersihkan cache widget status agar mengambil data terbaru dari Sheets
       st.session_state["content_db"] = load_database()
       for idx, row in st.session_state["content_db"].iterrows():
         w_key = f"stat_status_{row['ID']}"
