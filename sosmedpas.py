@@ -127,7 +127,7 @@ if menu == "📋 Daftar Konten & Jadwal":
       st.success("Data berhasil diperbarui dari Google Sheets!")
       st.rerun()
 
-  st.session_state["content_db"] = load_database()
+  # Jangan load ulang database jika sudah ada di session state, kecuali direfresh manual
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -172,7 +172,6 @@ if menu == "📋 Daftar Konten & Jadwal":
           .str.contains(search_query, case=False, na=False)
       ]
 
-    # Urutkan Z-A (Terbaru ke Terlama berdasarkan jadwal)
     if not filtered_df.empty:
       filtered_df = filtered_df.sort_values(by="Jadwal Upload", ascending=False)
 
@@ -200,22 +199,30 @@ if menu == "📋 Daftar Konten & Jadwal":
 
           with c2:
             st.markdown("🕒 **Status:**")
+            status_options = ["Draft", "Scheduled", "Posted"]
+            current_stat_idx = (
+                status_options.index(row["Status"])
+                if row["Status"] in status_options
+                else 0
+            )
+
             new_stat = st.selectbox(
                 "Status",
-                ["Draft", "Scheduled", "Posted"],
-                index=(
-                    ["Draft", "Scheduled", "Posted"].index(row["Status"])
-                    if row["Status"] in ["Draft", "Scheduled", "Posted"]
-                    else 0
-                ),
+                status_options,
+                index=current_stat_idx,
                 key=f"stat_{row['ID']}",
                 label_visibility="collapsed",
             )
             if new_stat != row["Status"]:
+              # Update session state langsung
               st.session_state["content_db"].loc[
                   st.session_state["content_db"]["ID"] == row["ID"], "Status"
               ] = new_stat
+              # Simpan permanen ke Google Sheets
               save_database(st.session_state["content_db"])
+              st.success(
+                  f"Status '{row['Judul Konten']}' diubah ke {new_stat}!"
+              )
               st.rerun()
 
           with c3:
@@ -236,7 +243,6 @@ if menu == "📋 Daftar Konten & Jadwal":
                 if pd.notna(row["Catatan"]) and row["Catatan"] != ""
                 else "-"
             )
-
             if catatan_full != "-":
               catatan_pendek = (
                   catatan_full[:25] + "..."
@@ -265,7 +271,6 @@ if menu == "📋 Daftar Konten & Jadwal":
                 st.success(f"Konten '{row['Judul Konten']}' berhasil dihapus!")
                 st.rerun()
 
-      # FORM EDIT MUNCUL JIKA TOMBOL EDIT DIKLIK
       if "edit_id" in st.session_state and st.session_state["edit_id"]:
         target_id = st.session_state["edit_id"]
         target_row = st.session_state["content_db"][
@@ -474,7 +479,6 @@ elif menu == "👔 Approval Direksi":
       " memberikan persetujuan, atau mengirim pengingat via WhatsApp."
   )
 
-  st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -647,7 +651,6 @@ elif menu == "🔔 Pusat Notifikasi & History":
       st.success("Data berhasil diperbarui!")
       st.rerun()
 
-  st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -783,7 +786,6 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
       " tim tujuan."
   )
 
-  st.session_state["content_db"] = load_database()
   df = st.session_state["content_db"]
   scheduled_df = df[df["Status"] == "Scheduled"]
 
