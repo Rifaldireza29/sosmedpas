@@ -206,22 +206,27 @@ if menu == "📋 Daftar Konten & Jadwal":
                 else 0
             )
 
-            # Menggunakan callback fungsi on_change untuk update berdasarkan ID yang akurat
-            def update_status_callback(row_id=row["ID"]):
-              val_baru = st.session_state[f"stat_status_{row_id}"]
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == row_id, "Status"
-              ] = val_baru
-              save_database(st.session_state["content_db"])
-
+            widget_key = f"stat_status_{row['ID']}"
             new_stat = st.selectbox(
                 "Status",
                 status_options,
                 index=current_stat_idx,
-                key=f"stat_status_{row['ID']}",
-                on_change=update_status_callback,
+                key=widget_key,
                 label_visibility="collapsed",
             )
+
+            # Update langsung berdasarkan ID unik baris di database
+            if new_stat != row["Status"]:
+              db_idx = st.session_state["content_db"][
+                  st.session_state["content_db"]["ID"] == row["ID"]
+              ].index
+              if not db_idx.empty:
+                st.session_state["content_db"].loc[db_idx, "Status"] = new_stat
+                save_database(st.session_state["content_db"])
+                st.success(
+                    f"Status '{row['Judul Konten']}' diubah ke {new_stat}!"
+                )
+                st.rerun()
 
           with c3:
             st.markdown("📅 **Jadwal:**")
