@@ -200,33 +200,27 @@ if menu == "📋 Daftar Konten & Jadwal":
           with c2:
             st.markdown("🕒 **Status:**")
             status_options = ["Draft", "Scheduled", "Posted"]
-            current_stat_idx = (
-                status_options.index(row["Status"])
-                if row["Status"] in status_options
-                else 0
-            )
-
+            
             widget_key = f"stat_status_{row['ID']}"
-            new_stat = st.selectbox(
-                "Status",
-                status_options,
-                index=current_stat_idx,
-                key=widget_key,
-                label_visibility="collapsed",
-            )
+            if widget_key not in st.session_state:
+              st.session_state[widget_key] = row["Status"]
 
-            # Update langsung berdasarkan ID unik baris di database
-            if new_stat != row["Status"]:
+            def update_status_from_selectbox(r_id=row["ID"], w_key=widget_key):
+              val_baru = st.session_state[w_key]
               db_idx = st.session_state["content_db"][
-                  st.session_state["content_db"]["ID"] == row["ID"]
+                  st.session_state["content_db"]["ID"] == r_id
               ].index
               if not db_idx.empty:
-                st.session_state["content_db"].loc[db_idx, "Status"] = new_stat
+                st.session_state["content_db"].loc[db_idx, "Status"] = val_baru
                 save_database(st.session_state["content_db"])
-                st.success(
-                    f"Status '{row['Judul Konten']}' diubah ke {new_stat}!"
-                )
-                st.rerun()
+
+            st.selectbox(
+                "Status",
+                status_options,
+                key=widget_key,
+                on_change=update_status_from_selectbox,
+                label_visibility="collapsed",
+            )
 
           with c3:
             st.markdown("📅 **Jadwal:**")
