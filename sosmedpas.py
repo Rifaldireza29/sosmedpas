@@ -206,24 +206,22 @@ if menu == "📋 Daftar Konten & Jadwal":
                 else 0
             )
 
-            # MENGGUNAKAN ID UNIK SEBAGAI KEY AGAR TIDAK TERTUKAR DENGAN BARIS LAIN
+            # Menggunakan callback fungsi on_change untuk update berdasarkan ID yang akurat
+            def update_status_callback(row_id=row["ID"]):
+              val_baru = st.session_state[f"stat_status_{row_id}"]
+              st.session_state["content_db"].loc[
+                  st.session_state["content_db"]["ID"] == row_id, "Status"
+              ] = val_baru
+              save_database(st.session_state["content_db"])
+
             new_stat = st.selectbox(
                 "Status",
                 status_options,
                 index=current_stat_idx,
                 key=f"stat_status_{row['ID']}",
+                on_change=update_status_callback,
                 label_visibility="collapsed",
             )
-            if new_stat != row["Status"]:
-              # Update data berdasarkan ID baris yang tepat di dataframe utama
-              st.session_state["content_db"].loc[
-                  st.session_state["content_db"]["ID"] == row["ID"], "Status"
-              ] = new_stat
-              save_database(st.session_state["content_db"])
-              st.success(
-                  f"Status '{row['Judul Konten']}' diubah ke {new_stat}!"
-              )
-              st.rerun()
 
           with c3:
             st.markdown("📅 **Jadwal:**")
