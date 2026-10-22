@@ -127,7 +127,6 @@ if menu == "📋 Daftar Konten & Jadwal":
       st.success("Data berhasil diperbarui dari Google Sheets!")
       st.rerun()
 
-  # Jangan load ulang database jika sudah ada di session state, kecuali direfresh manual
   df = st.session_state["content_db"]
 
   if df.empty:
@@ -172,6 +171,7 @@ if menu == "📋 Daftar Konten & Jadwal":
           .str.contains(search_query, case=False, na=False)
       ]
 
+    # Urutkan Z-A (Terbaru ke Terlama berdasarkan jadwal)
     if not filtered_df.empty:
       filtered_df = filtered_df.sort_values(by="Jadwal Upload", ascending=False)
 
@@ -206,19 +206,19 @@ if menu == "📋 Daftar Konten & Jadwal":
                 else 0
             )
 
+            # MENGGUNAKAN ID UNIK SEBAGAI KEY AGAR TIDAK TERTUKAR DENGAN BARIS LAIN
             new_stat = st.selectbox(
                 "Status",
                 status_options,
                 index=current_stat_idx,
-                key=f"stat_{row['ID']}",
+                key=f"stat_status_{row['ID']}",
                 label_visibility="collapsed",
             )
             if new_stat != row["Status"]:
-              # Update session state langsung
+              # Update data berdasarkan ID baris yang tepat di dataframe utama
               st.session_state["content_db"].loc[
                   st.session_state["content_db"]["ID"] == row["ID"], "Status"
               ] = new_stat
-              # Simpan permanen ke Google Sheets
               save_database(st.session_state["content_db"])
               st.success(
                   f"Status '{row['Judul Konten']}' diubah ke {new_stat}!"
@@ -271,6 +271,7 @@ if menu == "📋 Daftar Konten & Jadwal":
                 st.success(f"Konten '{row['Judul Konten']}' berhasil dihapus!")
                 st.rerun()
 
+      # FORM EDIT MUNCUL JIKA TOMBOL EDIT DIKLIK
       if "edit_id" in st.session_state and st.session_state["edit_id"]:
         target_id = st.session_state["edit_id"]
         target_row = st.session_state["content_db"][
@@ -588,7 +589,6 @@ elif menu == "👔 Approval Direksi":
                 key=f"no_dir_{row['ID']}",
             )
 
-            # Hitung sisa waktu / countdown akurat berdasarkan WIB (UTC+7)
             try:
               waktu_jadwal = datetime.strptime(
                   str(row["Jadwal Upload"]), "%Y-%m-%d %H:%M"
