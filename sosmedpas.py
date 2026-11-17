@@ -128,12 +128,13 @@ if not st.session_state["logged_in"]:
           "REZA": "reza123",
           "GILANG": "gilang123",
           "LARAS": "laras123",
+          "EMMA": "emma123",
       }
 
       input_user = st.selectbox("Pilih Nama User:", list(user_credentials.keys()))
       input_pass = st.text_input("Password:", type="password")
 
-      if st.button("🚀 Masuk Aplikasi", type="primary", use_container_width=True):
+      if st.button("🚀 Masuk ", type="primary", use_container_width=True):
         if input_pass == user_credentials[input_user]:
           st.session_state["logged_in"] = True
           st.session_state["current_user"] = input_user
@@ -609,7 +610,9 @@ def render_approval_panel(kategori_approval):
                 "Bu Emma": "628175731188",
                 "Pak Gilang": "6281809830066",
                 "Surya": "6281945678904",
-                "Bu Laras": "6280000000000",
+                "Bu Laras": "628118490786",
+                "Sani": "6288295775828",
+                "Pa Fian": "6281383473644",
             }
             pilih_penerima = st.selectbox(
                 "Pilih Kontak Penerima WA:",
@@ -928,10 +931,12 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     daftar_tim = {
         "Pak Reza": "6281321686233",
-        "Bu Emma": "628175731188",
-        "Pak Gilang": "6281809830066",
-        "Surya": "6281945678904",
-        "Bu Laras": "6280000000000",
+                "Bu Emma": "628175731188",
+                "Pak Gilang": "6281809830066",
+                "Surya": "6281945678904",
+                "Bu Laras": "628118490786",
+                "Sani": "6288295775828",
+                "Pa Fian": "6281383473644",
     }
 
     pilihan_admin = st.selectbox(
