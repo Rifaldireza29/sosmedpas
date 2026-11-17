@@ -116,7 +116,8 @@ menu = st.sidebar.radio(
         "📋 Daftar Konten PAS",
         "📋 Daftar Konten PTD",
         "➕ Tambah Konten Baru",
-        "👔 Approval Direksi",
+        "👔 Approval Konten PAS",
+        "👔 Approval Konten PTD",
         "🔔 Pusat Notifikasi & History",
         "⏰ Kirim WhatsApp Reminder",
     ],
@@ -141,13 +142,11 @@ def render_content_table(kategori_pilih):
 
   df = st.session_state["content_db"]
 
-  # Filter berdasarkan kategori dengan penanganan data lama
+  # Filter berdasarkan kategori dengan penanganan data lama (data lama masuk PAS)
   if not df.empty and "Kategori" in df.columns:
     if kategori_pilih == "PAS":
-      # Tab PAS menampilkan yang ber Kategori "PAS" atau kosong/belum diisi (data lama)
       df = df[(df["Kategori"] == "PAS") | (df["Kategori"] == "") | (df["Kategori"].isna())]
     else:
-      # Tab PTD HANYA menampilkan yang benar-benar ber Kategori "PTD"
       df = df[df["Kategori"] == "PTD"]
 
   if df.empty:
@@ -426,126 +425,40 @@ def render_content_table(kategori_pilih):
 
 
 # ==========================================
-# PEMANGGILAN MENU APLIKASI
+# FUNGSI RENDER APPROVAL DIREKSI (PAS / PTD)
 # ==========================================
-if menu == "📋 Daftar Konten PAS":
-  render_content_table("PAS")
-
-elif menu == "📋 Daftar Konten PTD":
-  render_content_table("PTD")
-
-# ==========================================
-# MENU: TAMBAH KONTEN BARU
-# ==========================================
-elif menu == "➕ Tambah Konten Baru":
-  st.subheader("➕ Tambah Jadwal Konten & Pilih Kategori (PAS / PTD)")
-
-  with st.form("form_tambah_konten", clear_on_submit=True):
-    pilih_kategori_baru = st.selectbox("Pilih Kategori Konten", ["PAS", "PTD"])
-    judul = st.text_input("Judul / Tema Konten")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-      platform = st.selectbox(
-          "Platform Utama", ["Instagram", "TikTok", "YouTube", "Facebook"]
-      )
-      tipe_konten = st.multiselect(
-          "Tipe Konten (Bisa pilih lebih dari satu)",
-          [
-              "IG Feed",
-              "IG Story",
-              "IG Reel",
-              "Carousel",
-              "Video Short",
-              "Lainnya",
-          ],
-      )
-    with col2:
-      tanggal_upload = st.date_input("Tanggal Upload")
-      jam_upload = st.time_input("Jam Upload")
-
-    link_gdrive = st.text_input(
-        "Link Google Drive (Aset Foto/Video/Caption)"
-    )
-    
-    # Status awal default diset "Draft" untuk pengajuan ke Direksi / Approval
-    status = st.selectbox(
-        "Status Awal",
-        ["Draft", "Scheduled"],
-        index=0,
-        help="Pilih 'Draft' jika ingin diajukan terlebih dahulu untuk menunggu Approval Direksi.",
-    )
-    
-    catatan = st.text_area("Catatan Tambahan / Copywriting")
-
-    submit_button = st.form_submit_button("Simpan Jadwal Konten")
-
-    if submit_button:
-      if judul and link_gdrive and tipe_konten:
-        st.session_state["content_db"] = load_database()
-
-        waktu_gabung = datetime.combine(tanggal_upload, jam_upload)
-        new_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
-
-        new_data = {
-            "ID": new_id,
-            "Kategori": pilih_kategori_baru,
-            "Judul Konten": judul,
-            "Platform": platform,
-            "Tipe Konten": tipe_konten,
-            "Jadwal Upload": waktu_gabung.strftime("%Y-%m-%d %H:%M"),
-            "Link Google Drive": link_gdrive,
-            "Status": status,
-            "Approval": "Pending Approval",
-            "Catatan": catatan,
-        }
-
-        st.session_state["content_db"] = pd.concat(
-            [
-                st.session_state["content_db"],
-                pd.DataFrame([new_data]),
-            ],
-            ignore_index=True,
-        )
-        save_database(st.session_state["content_db"])
-        st.success(
-            f"Berhasil! Konten kategori **{pilih_kategori_baru}** dengan status **{status}** tersimpan permanen di Google Sheets."
-        )
-      else:
-        st.warning(
-            "Mohon isi Judul, Link Google Drive, dan minimal pilih satu Tipe"
-            " Konten."
-        )
-
-# ==========================================
-# MENU: APPROVAL DIREKSI
-# ==========================================
-elif menu == "👔 Approval Direksi":
+def render_approval_panel(kategori_approval):
   col_title_app, col_btn_app = st.columns([4, 1])
   with col_title_app:
-    st.subheader("👔 Panel Persetujuan (Approval) Direksi & WhatsApp Reminder")
+    st.subheader(f"👔 Panel Persetujuan (Approval) Direksi - {kategori_approval}")
   with col_btn_app:
-    if st.button("🔄 Refresh Data", key="ref_menu3"):
+    if st.button(f"🔄 Refresh Data", key=f"ref_app_{kategori_approval}"):
       st.session_state["content_db"] = load_database()
       st.success("Data berhasil diperbarui!")
       st.rerun()
 
   st.markdown(
-      "Direksi dapat memeriksa materi konten (baik PAS maupun PTD), mengecek aset Google Drive,"
+      f"Direksi dapat memeriksa materi konten **{kategori_approval}**, mengecek aset Google Drive,"
       " memberikan persetujuan, atau mengirim pengingat via WhatsApp."
   )
 
   df = st.session_state["content_db"]
 
+  if not df.empty and "Kategori" in df.columns:
+    if kategori_approval == "PAS":
+      df = df[(df["Kategori"] == "PAS") | (df["Kategori"] == "") | (df["Kategori"].isna())]
+    else:
+      df = df[df["Kategori"] == "PTD"]
+
   if df.empty:
-    st.info("Belum ada konten yang diajukan.")
+    st.info(f"Belum ada data konten untuk kategori {kategori_approval}.")
   else:
     pending_df = df[df["Approval"] == "Pending Approval"].copy()
     if not pending_df.empty:
       pending_df = pending_df.sort_values(by="Jadwal Upload", ascending=False)
 
     pilih_tgl_app = st.date_input(
-        "📅 Filter Tanggal Pengajuan", value=None, key="filter_tgl_app"
+        "📅 Filter Tanggal Pengajuan", value=None, key=f"filter_tgl_app_{kategori_approval}"
     )
     if pilih_tgl_app:
       tgl_str = pilih_tgl_app.strftime("%Y-%m-%d")
@@ -553,11 +466,9 @@ elif menu == "👔 Approval Direksi":
           pending_df["Jadwal Upload"].str.startswith(tgl_str)
       ]
 
-    st.markdown("### ⏳ Konten Menunggu Persetujuan (Pending)")
+    st.markdown(f"### ⏳ Konten {kategori_approval} Menunggu Persetujuan (Pending)")
     if pending_df.empty:
-      st.success(
-          "🎉 Tidak ada konten yang menunggu approval untuk tanggal tersebut."
-      )
+      st.success(f"🎉 Tidak ada konten {kategori_approval} yang menunggu approval.")
     else:
       for index, row in pending_df.iterrows():
         tipe_str = (
@@ -565,15 +476,12 @@ elif menu == "👔 Approval Direksi":
             if isinstance(row["Tipe Konten"], list)
             else str(row["Tipe Konten"])
         )
-        kat_label = row.get("Kategori", "PAS")
-        if not kat_label or kat_label == "":
-          kat_label = "PAS"
 
         with st.container(border=True):
           c1, c2, c3, c4, c5 = st.columns([1.8, 1.1, 1.1, 1, 1.5])
 
           with c1:
-            st.markdown(f"📌 **[{kat_label}] {row['Judul Konten']}**")
+            st.markdown(f"📌 **{row['Judul Konten']}**")
             st.caption(f"Platform: {row['Platform']} | Tipe: {tipe_str} | Status: {row['Status']}")
 
           with c2:
@@ -673,7 +581,7 @@ elif menu == "👔 Approval Direksi":
               info_waktu = f"🕒 *Jadwal Tayang:* {row['Jadwal Upload']} WIB"
 
             pesan_approval_wa = (
-                f"Halo *{pilih_dir}*, mohon bantuannya untuk memeriksa dan memberikan approval pada konten sosmed [{kat_label}] berikut:\n\n"
+                f"Halo *{pilih_dir}*, mohon bantuannya untuk memeriksa dan memberikan approval pada konten sosmed [{kategori_approval}] berikut:\n\n"
                 f"📌 *Judul:* {row['Judul Konten']}\n"
                 f"📱 *Platform:* {row['Platform']} ({tipe_str})\n"
                 f"{info_waktu}\n"
@@ -692,15 +600,120 @@ elif menu == "👔 Approval Direksi":
                 unsafe_allow_html=True,
             )
 
-    st.markdown("### 📜 Riwayat Semua Approval")
+    st.markdown(f"### 📜 Riwayat Approval {kategori_approval}")
     history_approval = df[
-        ["Kategori", "Judul Konten", "Platform", "Jadwal Upload", "Approval"]
+        ["Judul Konten", "Platform", "Jadwal Upload", "Approval"]
     ].copy()
     if not history_approval.empty:
       history_approval = history_approval.sort_values(
           by="Jadwal Upload", ascending=False
       )
     st.dataframe(history_approval, use_container_width=True, hide_index=True)
+
+
+# ==========================================
+# PEMANGGILAN MENU APLIKASI
+# ==========================================
+if menu == "📋 Daftar Konten PAS":
+  render_content_table("PAS")
+
+elif menu == "📋 Daftar Konten PTD":
+  render_content_table("PTD")
+
+# ==========================================
+# MENU: TAMBAH KONTEN BARU
+# ==========================================
+elif menu == "➕ Tambah Konten Baru":
+  st.subheader("➕ Tambah Jadwal Konten & Pilih Kategori (PAS / PTD)")
+
+  with st.form("form_tambah_konten", clear_on_submit=True):
+    pilih_kategori_baru = st.selectbox("Pilih Kategori Konten", ["PAS", "PTD"])
+    judul = st.text_input("Judul / Tema Konten")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+      platform = st.selectbox(
+          "Platform Utama", ["Instagram", "TikTok", "YouTube", "Facebook"]
+      )
+      tipe_konten = st.multiselect(
+          "Tipe Konten (Bisa pilih lebih dari satu)",
+          [
+              "IG Feed",
+              "IG Story",
+              "IG Reel",
+              "Carousel",
+              "Video Short",
+              "Lainnya",
+          ],
+      )
+    with col2:
+      tanggal_upload = st.date_input("Tanggal Upload")
+      jam_upload = st.time_input("Jam Upload")
+
+    link_gdrive = st.text_input(
+        "Link Google Drive (Aset Foto/Video/Caption)"
+    )
+    
+    # Status awal default diset "Draft" untuk pengajuan ke Direksi / Approval
+    status = st.selectbox(
+        "Status Awal",
+        ["Draft", "Scheduled"],
+        index=0,
+        help="Pilih 'Draft' jika ingin diajukan terlebih dahulu untuk menunggu Approval Direksi.",
+    )
+    
+    catatan = st.text_area("Catatan Tambahan / Copywriting")
+
+    submit_button = st.form_submit_button("Simpan Jadwal Konten")
+
+    if submit_button:
+      if judul and link_gdrive and tipe_konten:
+        st.session_state["content_db"] = load_database()
+
+        waktu_gabung = datetime.combine(tanggal_upload, jam_upload)
+        new_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+
+        new_data = {
+            "ID": new_id,
+            "Kategori": pilih_kategori_baru,
+            "Judul Konten": judul,
+            "Platform": platform,
+            "Tipe Konten": tipe_konten,
+            "Jadwal Upload": waktu_gabung.strftime("%Y-%m-%d %H:%M"),
+            "Link Google Drive": link_gdrive,
+            "Status": status,
+            "Approval": "Pending Approval",
+            "Catatan": catatan,
+        }
+
+        st.session_state["content_db"] = pd.concat(
+            [
+                st.session_state["content_db"],
+                pd.DataFrame([new_data]),
+            ],
+            ignore_index=True,
+        )
+        save_database(st.session_state["content_db"])
+        st.success(
+            f"Berhasil! Konten kategori **{pilih_kategori_baru}** dengan status **{status}** tersimpan permanen di Google Sheets."
+        )
+      else:
+        st.warning(
+            "Mohon isi Judul, Link Google Drive, dan minimal pilih satu Tipe"
+            " Konten."
+        )
+
+# ==========================================
+# MENU: APPROVAL KONTEN PAS
+# ==========================================
+elif menu == "👔 Approval Konten PAS":
+  render_approval_panel("PAS")
+
+# ==========================================
+# MENU: APPROVAL KONTEN PTD
+# ==========================================
+elif menu == "👔 Approval Konten PTD":
+  render_approval_panel("PTD")
 
 # ==========================================
 # MENU: PUSAT NOTIFIKASI & HISTORY
@@ -886,7 +899,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
-        if isinstance(selected_row["Tippy Konten"] if "Tippy Konten" in selected_row else selected_row["Tipe Konten"], list)
+        if isinstance(selected_row["Tipe Konten"], list)
         else str(selected_row["Tipe Konten"])
     )
     kat_label = selected_row.get("Kategori", "PAS")
