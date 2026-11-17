@@ -1173,9 +1173,9 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
       kat_label = "PAS"
 
     pesan_wa = (
-        f"Halo! Reminder nih, konten sosial media *[{kat_label}] {selected_row['Judul Konten']}* "
+        f"Halo! Pak/Bu Reminder untuk approval nya, dikarenakan konten *[{kat_label}] {selected_row['Judul Konten']}* "
         f"dengan format ({tipe_str}) harus naik ke {selected_row['Platform']} "
-        f"pada jam {selected_row['Jadwal Upload']} WIB. Jangan lupa cek asetnya ya: {selected_row['Link Google Drive']}"
+        f"pada jam {selected_row['Jadwal Upload']} WIB. berikut aset konten nya : {selected_row['Link Google Drive']}"
     )
 
     encoded_pesan = urllib.parse.quote(pesan_wa)
