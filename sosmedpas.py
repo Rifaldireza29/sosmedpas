@@ -46,13 +46,15 @@ def load_database():
               "Link Google Drive",
               "Status",
               "Approval",
+              "Approved By",
               "Catatan",
           ]
       )
     else:
-      # Jika kolom Kategori belum ada di database lama, tambahkan default "PAS"
       if "Kategori" not in df.columns:
         df.insert(1, "Kategori", "PAS")
+      if "Approved By" not in df.columns:
+        df["Approved By"] = "-"
 
       if "Tipe Konten" in df.columns:
         df["Tipe Konten"] = df["Tipe Konten"].apply(
@@ -71,6 +73,7 @@ def load_database():
             "Link Google Drive",
             "Status",
             "Approval",
+            "Approved By",
             "Catatan",
         ]
     )
@@ -98,18 +101,70 @@ def save_database(df):
 # Zona waktu WIB (UTC+7)
 WIB = timezone(timedelta(hours=7))
 
-# Inisialisasi Session State dengan Google Sheets
+# Inisialisasi Session State Database
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = load_database()
 
+# ==========================================
+# SISTEM LOGIN SEDERHANA (5 USER)
+# ==========================================
+if "logged_in" not in st.session_state:
+  st.session_state["logged_in"] = False
+if "current_user" not in st.session_state:
+  st.session_state["current_user"] = ""
+
+if not st.session_state["logged_in"]:
+  st.markdown("<br><br>", unsafe_allow_html=True)
+  col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
+  with col_l2:
+    with st.container(border=True):
+      st.subheader("🔐 Login Aplikasi Sosmed PAS & PTD")
+      st.markdown("Silakan masukkan nama dan password Anda untuk masuk.")
+
+      # Daftar 5 User dengan Password masing-masing (bisa diubah sesuai keinginan)
+      user_credentials = {
+          "SURYA": "surya123",
+          "SANI": "sani123",
+          "REZA": "reza123",
+          "GILANG": "gilang123",
+          "LARAS": "laras123",
+      }
+
+      input_user = st.selectbox("Pilih Nama User:", list(user_credentials.keys()))
+      input_pass = st.text_input("Password:", type="password")
+
+      if st.button("🚀 Masuk Aplikasi", type="primary", use_container_width=True):
+        if input_pass == user_credentials[input_user]:
+          st.session_state["logged_in"] = True
+          st.session_state["current_user"] = input_user
+          st.success(f"Selamat datang, {input_user}!")
+          st.rerun()
+        else:
+          st.error("Password salah! Silakan coba lagi.")
+  
+  # Hentikan eksekusi di bawah jika belum login
+  st.stop()
+
+
+# ==========================================
+# APLIKASI UTAMA (SETELAH LOGIN)
+# ==========================================
+active_user = st.session_state["current_user"]
+
 st.title("📱 Social Media Content Planner & Scheduler (PAS & PTD)")
 st.markdown(
-    "Kelola jadwal postingan, kategori PAS & PTD, filter tanggal, dan Approval"
-    " Direksi (Terhubung ke Google Sheets)."
+    f"👤 **User Login:** ` {active_user} ` | Kelola jadwal postingan, kategori PAS & PTD, approval, dan reminder."
 )
 
-# Sidebar untuk Navigasi Menu
+# Tombol Logout di Sidebar
 st.sidebar.title("📌 Navigasi Menu")
+st.sidebar.markdown(f"👤 Aktif sebagai: **{active_user}**")
+if st.sidebar.button("🔒 Logout / Keluar"):
+  st.session_state["logged_in"] = False
+  st.session_state["current_user"] = ""
+  st.rerun()
+
+st.sidebar.markdown("---")
 menu = st.sidebar.radio(
     "Pilih Menu:",
     [
@@ -122,6 +177,7 @@ menu = st.sidebar.radio(
         "⏰ Kirim WhatsApp Reminder",
     ],
 )
+
 
 # ==========================================
 # FUNGSI RENDER TABEL UTAMA (PAS / PTD)
@@ -142,7 +198,6 @@ def render_content_table(kategori_pilih):
 
   df = st.session_state["content_db"]
 
-  # Filter berdasarkan kategori dengan penanganan data lama (data lama masuk PAS)
   if not df.empty and "Kategori" in df.columns:
     if kategori_pilih == "PAS":
       df = df[(df["Kategori"] == "PAS") | (df["Kategori"] == "") | (df["Kategori"].isna())]
@@ -214,7 +269,8 @@ def render_content_table(kategori_pilih):
 
           with c1:
             st.markdown(f"📌 **{no}. {row['Judul Konten']}**")
-            st.caption(f"Platform: {row['Platform']} | Tipe: {tipe_str}")
+            app_by_info = f" | Approved by: {row['Approved By']}" if row.get('Approved By') and row['Approved By'] != '-' else ""
+            st.caption(f"Platform: {row['Platform']} | Tipe: {tipe_str}{app_by_info}")
 
           with c2:
             st.markdown("🕒 **Status:**")
@@ -425,12 +481,12 @@ def render_content_table(kategori_pilih):
 
 
 # ==========================================
-# FUNGSI RENDER APPROVAL DIREKSI (PAS / PTD)
+# FUNGSI RENDER APPROVAL (PAS / PTD)
 # ==========================================
 def render_approval_panel(kategori_approval):
   col_title_app, col_btn_app = st.columns([4, 1])
   with col_title_app:
-    st.subheader(f"👔 Panel Persetujuan (Approval) Direksi - {kategori_approval}")
+    st.subheader(f"👔 Panel Persetujuan (Approval) - {kategori_approval}")
   with col_btn_app:
     if st.button(f"🔄 Refresh Data", key=f"ref_app_{kategori_approval}"):
       st.session_state["content_db"] = load_database()
@@ -438,8 +494,7 @@ def render_approval_panel(kategori_approval):
       st.rerun()
 
   st.markdown(
-      f"Direksi dapat memeriksa materi konten **{kategori_approval}**, mengecek aset Google Drive,"
-      " memberikan persetujuan, atau mengirim pengingat via WhatsApp."
+      f"Anda login sebagai **{active_user}**. Periksa materi konten **{kategori_approval}**, cek aset Google Drive, dan berikan persetujuan."
   )
 
   df = st.session_state["content_db"]
@@ -527,38 +582,45 @@ def render_approval_panel(kategori_approval):
               if st.button(
                   "✅", key=f"app_{row['ID']}", help="Setujui (Approve)"
               ):
-                st.session_state["content_db"].loc[
-                    st.session_state["content_db"]["ID"] == row["ID"],
-                    "Approval",
-                ] = "Approved"
+                # Catat user yang melakukan approval
+                db_idx = st.session_state["content_db"][
+                    st.session_state["content_db"]["ID"] == row["ID"]
+                ].index
+                st.session_state["content_db"].loc[db_idx, "Approval"] = "Approved"
+                st.session_state["content_db"].loc[db_idx, "Approved By"] = active_user
                 save_database(st.session_state["content_db"])
-                st.success("Disetujui!")
+                st.success(f"Disetujui oleh {active_user}!")
                 st.rerun()
             with btn_rej:
               if st.button("❌", key=f"rej_{row['ID']}", help="Tolak (Reject)"):
-                st.session_state["content_db"].loc[
-                    st.session_state["content_db"]["ID"] == row["ID"],
-                    "Approval",
-                ] = "Rejected"
+                db_idx = st.session_state["content_db"][
+                    st.session_state["content_db"]["ID"] == row["ID"]
+                ].index
+                st.session_state["content_db"].loc[db_idx, "Approval"] = "Rejected"
+                st.session_state["content_db"].loc[db_idx, "Approved By"] = f"Rejected by {active_user}"
                 save_database(st.session_state["content_db"])
-                st.warning("Ditolak.")
+                st.warning(f"Ditolak oleh {active_user}.")
                 st.rerun()
 
           with st.expander(
               f"📲 Kirim Reminder WA untuk: {row['Judul Konten']}"
           ):
-            daftar_direksi = {
+            daftar_tim_wa = {
                 "Pak Reza": "6281321686233",
+                "Bu Emma": "628175731188",
+                "Pak Gilang": "6281809830066",
+                "Surya": "6281945678904",
+                "Bu Laras": "6280000000000",  # Silakan edit nomor Bu Laras di sini
             }
-            pilih_dir = st.selectbox(
-                "Pilih Kontak Direksi:",
-                list(daftar_direksi.keys()),
-                key=f"sel_dir_{row['ID']}",
+            pilih_penerima = st.selectbox(
+                "Pilih Kontak Penerima WA:",
+                list(daftar_tim_wa.keys()),
+                key=f"sel_wa_{row['ID']}",
             )
-            no_dir = st.text_input(
+            no_tujuan = st.text_input(
                 "Nomor WhatsApp Tujuan:",
-                value=daftar_direksi[pilih_dir],
-                key=f"no_dir_{row['ID']}",
+                value=daftar_tim_wa[pilih_penerima],
+                key=f"no_wa_{row['ID']}",
             )
 
             try:
@@ -581,7 +643,7 @@ def render_approval_panel(kategori_approval):
               info_waktu = f"🕒 *Jadwal Tayang:* {row['Jadwal Upload']} WIB"
 
             pesan_approval_wa = (
-                f"Halo *{pilih_dir}*, mohon bantuannya untuk memeriksa dan memberikan approval pada konten sosmed [{kategori_approval}] berikut:\n\n"
+                f"Halo *{pilih_penerima}*, mohon bantuannya untuk memeriksa dan memberikan approval pada konten sosmed [{kategori_approval}] berikut:\n\n"
                 f"📌 *Judul:* {row['Judul Konten']}\n"
                 f"📱 *Platform:* {row['Platform']} ({tipe_str})\n"
                 f"{info_waktu}\n"
@@ -589,7 +651,7 @@ def render_approval_panel(kategori_approval):
                 f"Terima kasih!"
             )
             encoded_p_wa = urllib.parse.quote(pesan_approval_wa)
-            wa_approval_url = f"https://api.whatsapp.com/send?phone={no_dir}&text={encoded_p_wa}"
+            wa_approval_url = f"https://api.whatsapp.com/send?phone={no_tujuan}&text={encoded_p_wa}"
 
             st.markdown(
                 f'<a href="{wa_approval_url}" target="_blank"><button'
@@ -602,7 +664,7 @@ def render_approval_panel(kategori_approval):
 
     st.markdown(f"### 📜 Riwayat Approval {kategori_approval}")
     history_approval = df[
-        ["Judul Konten", "Platform", "Jadwal Upload", "Approval"]
+        ["Judul Konten", "Platform", "Jadwal Upload", "Approval", "Approved By"]
     ].copy()
     if not history_approval.empty:
       history_approval = history_approval.sort_values(
@@ -654,12 +716,11 @@ elif menu == "➕ Tambah Konten Baru":
         "Link Google Drive (Aset Foto/Video/Caption)"
     )
     
-    # Status awal default diset "Draft" untuk pengajuan ke Direksi / Approval
     status = st.selectbox(
         "Status Awal",
         ["Draft", "Scheduled"],
         index=0,
-        help="Pilih 'Draft' jika ingin diajukan terlebih dahulu untuk menunggu Approval Direksi.",
+        help="Pilih 'Draft' jika ingin diajukan terlebih dahulu untuk menunggu Approval.",
     )
     
     catatan = st.text_area("Catatan Tambahan / Copywriting")
@@ -683,6 +744,7 @@ elif menu == "➕ Tambah Konten Baru":
             "Link Google Drive": link_gdrive,
             "Status": status,
             "Approval": "Pending Approval",
+            "Approved By": "-",
             "Catatan": catatan,
         }
 
@@ -695,12 +757,11 @@ elif menu == "➕ Tambah Konten Baru":
         )
         save_database(st.session_state["content_db"])
         st.success(
-            f"Berhasil! Konten kategori **{pilih_kategori_baru}** dengan status **{status}** tersimpan permanen di Google Sheets."
+            f"Berhasil! Konten kategori **{pilih_kategori_baru}** dengan status **{status}** tersimpan di Google Sheets."
         )
       else:
         st.warning(
-            "Mohon isi Judul, Link Google Drive, dan minimal pilih satu Tipe"
-            " Konten."
+            "Mohon isi Judul, Link Google Drive, dan minimal pilih satu Tipe Konten."
         )
 
 # ==========================================
@@ -743,8 +804,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
       ].copy()
       if scheduled_df.empty:
         st.success(
-            "🎉 Tidak ada peringatan mendesak untuk konten yang sudah"
-            " di-approve."
+            "🎉 Tidak ada peringatan mendesak untuk konten yang sudah di-approve."
         )
       else:
         ada_alert = False
@@ -784,8 +844,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
               countdown_text = f"⏳ **Countdown:** {jam_cd:02d} jam {menit_cd:02d} menit {detik_cd:02d} detik lagi menuju jam H"
             else:
               countdown_text = (
-                  "🚨 **STATUS:** Waktu upload sudah lewat dari jadwal dan belum"
-                  " diubah ke 'Posted'!"
+                  "🚨 **STATUS:** Waktu upload sudah lewat dari jadwal dan belum diubah ke 'Posted'!"
               )
 
             st.error(
@@ -797,15 +856,13 @@ elif menu == "🔔 Pusat Notifikasi & History":
             )
             if pd.notna(row["Link Google Drive"]):
               st.markdown(
-                  f"🔗 [📂 Buka Aset di Google"
-                  f" Drive]({row['Link Google Drive']})"
+                  f"🔗 [📂 Buka Aset di Google Drive]({row['Link Google Drive']})"
               )
             st.divider()
 
         if not ada_alert:
           st.info(
-              "ℹ️ Belum ada konten approved yang masuk dalam rentang H-2 jam"
-              " menuju waktu upload."
+              "ℹ️ Belum ada konten approved yang masuk dalam rentang H-2 jam menuju waktu upload."
           )
 
     with tab_history:
@@ -848,6 +905,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
                   "Platform",
                   "Tipe Konten",
                   "Approval",
+                  "Approved By",
                   "Status",
                   "Jadwal Upload",
                   "Catatan",
@@ -863,8 +921,7 @@ elif menu == "🔔 Pusat Notifikasi & History":
 elif menu == "⏰ Kirim WhatsApp Reminder":
   st.subheader("📲 Kirim Peringatan Cepat ke WhatsApp Tim")
   st.markdown(
-      "Pilih konten yang mau diingatkan, lalu pilih nama / nomor WhatsApp anggota"
-      " tim tujuan."
+      "Pilih konten yang mau diingatkan, lalu pilih nama / nomor WhatsApp anggota tim tujuan."
   )
 
   df = st.session_state["content_db"]
@@ -886,6 +943,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
         "Bu Emma": "628175731188",
         "Pak Gilang": "6281809830066",
         "Surya": "6281945678904",
+        "Bu Laras": "6280000000000",  # Silakan edit nomor WhatsApp Bu Laras di sini
     }
 
     pilihan_admin = st.selectbox(
