@@ -26,7 +26,7 @@ def get_gspread_client():
   return client
 
 
-# Fungsi untuk memuat data dari Google Sheets ke Pandas DataFrame
+# Fungsi untuk memuat data utama (Jadwal Konten) dari Google Sheets
 def load_database():
   try:
     client = get_gspread_client()
@@ -51,7 +51,6 @@ def load_database():
           ]
       )
     else:
-      # Pastikan kolom-kolom penting ada (mencegah KeyError jika data lama di sheets belum punya)
       if "Kategori" not in df.columns:
         df.insert(1, "Kategori", "PAS")
       if "Approved By" not in df.columns:
@@ -80,7 +79,7 @@ def load_database():
     )
 
 
-# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets
+# Fungsi untuk menyimpan seluruh DataFrame utama ke Google Sheets
 def save_database(df):
   try:
     client = get_gspread_client()
@@ -99,6 +98,81 @@ def save_database(df):
     st.error(f"Gagal menyimpan ke Google Sheets: {e}")
 
 
+# ==========================================
+# FUNGSI UNTUK REKAPAN REQUEST KONTEN (SHEET KEDUA / TAB KEDUA DI SPREADSHEET)
+# ==========================================
+def load_request_database():
+  try:
+    client = get_gspread_client()
+    # Menggunakan worksheet kedua dengan nama "Request Konten" (pastikan buat sheet baru di GSheet atau otomatis)
+    try:
+      sheet = client.open("Content Database Sosmed").worksheet("Request Konten")
+    except:
+      # Jika sheet belum ada, buat otomatis
+      spreadsheet = client.open("Content Database Sosmed")
+      sheet = spreadsheet.add_worksheet(title="Request Konten", rows=100, cols=10)
+      sheet.append_row([
+          "ID", "Kategori", "Judul Request", "Platform", "Tipe Konten", 
+          "Pengaju", "Link Referensi", "Status Request", "Catatan"
+      ])
+    
+    data = sheet.get_all_records()
+    df = pd.DataFrame(data)
+
+    if df.empty:
+      df = pd.DataFrame(
+          columns=[
+              "ID",
+              "Kategori",
+              "Judul Request",
+              "Platform",
+              "Tipe Konten",
+              "Pengaju",
+              "Link Referensi",
+              "Status Request",
+              "Catatan",
+          ]
+      )
+    else:
+      if "Tipe Konten" in df.columns:
+        df["Tipe Konten"] = df["Tipe Konten"].apply(
+            lambda x: x.split(", ") if isinstance(x, str) and x else []
+        )
+    return df
+  except Exception as e:
+    return pd.DataFrame(
+        columns=[
+            "ID",
+            "Kategori",
+            "Judul Request",
+            "Platform",
+            "Tipe Konten",
+            "Pengaju",
+            "Link Referensi",
+            "Status Request",
+            "Catatan",
+        ]
+    )
+
+
+def save_request_database(df):
+  try:
+    client = get_gspread_client()
+    sheet = client.open("Content Database Sosmed").worksheet("Request Konten")
+
+    df_to_save = df.copy()
+    df_to_save["Tipe Konten"] = df_to_save["Tipe Konten"].apply(
+        lambda x: ", ".join(x) if isinstance(x, list) else str(x)
+    )
+
+    sheet.clear()
+    header = list(df_to_save.columns)
+    rows = df_to_save.values.tolist()
+    sheet.update([header] + rows)
+  except Exception as e:
+    st.error(f"Gagal menyimpan ke Google Sheets (Request): {e}")
+
+
 # Zona waktu WIB (UTC+7)
 WIB = timezone(timedelta(hours=7))
 
@@ -106,8 +180,11 @@ WIB = timezone(timedelta(hours=7))
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = load_database()
 
+if "request_db" not in st.session_state:
+  st.session_state["request_db"] = load_request_database()
+
 # ==========================================
-# SISTEM LOGIN SEDERHANA (5 USER)
+# SISTEM LOGIN SEDERHANA (6 USER)
 # ==========================================
 if "logged_in" not in st.session_state:
   st.session_state["logged_in"] = False
@@ -171,6 +248,7 @@ menu = st.sidebar.radio(
         "📋 Daftar Konten PAS",
         "📋 Daftar Konten PTD",
         "➕ Tambah Konten Baru",
+        "📥 Daftar Request Konten",
         "👔 Approval Konten PAS",
         "👔 Approval Konten PTD",
         "🔔 Pusat Notifikasi & History",
@@ -766,6 +844,138 @@ elif menu == "➕ Tambah Konten Baru":
         )
 
 # ==========================================
+# MENU BARU: DAFTAR REQUEST KONTEN
+# ==========================================
+elif menu == "📥 Daftar Request Konten":
+  st.subheader("📥 Daftar & Form Request Konten Baru (PAS & PTD)")
+  st.markdown("Menu khusus untuk mengajukan atau merekap usulan/ide request konten baru tanpa masuk ke jadwal utama.")
+
+  # Tab atau pilihan untuk Input Request baru vs Lihat Daftar Request
+  tab_req_list, tab_req_form = st.tabs(["📋 Rekapan Request Konten", "➕ Buat Request Baru"])
+
+  with tab_req_form:
+    st.markdown("### Form Pengajuan Request Konten")
+    with st.form("form_request_konten", clear_on_submit=True):
+      req_kategori = st.selectbox("Pilih Kategori", ["PAS", "PTD"], key="req_kat")
+      req_judul = st.text_input("Judul / Topik Usulan Konten", key="req_jdl")
+      
+      rc1, rc2 = st.columns(2)
+      with rc1:
+        req_platform = st.selectbox(
+            "Target Platform", ["Instagram", "TikTok", "YouTube", "Facebook"], key="req_plt"
+        )
+        req_tipe = st.multiselect(
+            "Format / Tipe Konten",
+            [
+                "IG Feed",
+                "IG Story",
+                "IG Reel",
+                "Carousel",
+                "Video Short",
+                "Lainnya",
+            ],
+            key="req_tp"
+        )
+      with rc2:
+        req_status = st.selectbox(
+            "Status Usulan", ["Menunggu Review", "Disetujui", "Ditolak"], key="req_sts"
+        )
+        req_link = st.text_input("Link Referensi / Dokumen Pendukung (Opsional)", key="req_lnk")
+
+      req_catatan = st.text_area("Catatan / Penjelasan Detail Ide Request", key="req_ctt")
+
+      submit_req = st.form_submit_button("📩 Kirim Usulan Request")
+
+      if submit_req:
+        if req_judul and req_tipe:
+          st.session_state["request_db"] = load_request_database()
+          req_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+
+          new_req_data = {
+              "ID": req_id,
+              "Kategori": req_kategori,
+              "Judul Request": req_judul,
+              "Platform": req_platform,
+              "Tipe Konten": req_tipe,
+              "Pengaju": active_user,
+              "Link Referensi": req_link if req_link else "-",
+              "Status Request": req_status,
+              "Catatan": req_catatan,
+          }
+
+          st.session_state["request_db"] = pd.concat(
+              [
+                  st.session_state["request_db"],
+                  pd.DataFrame([new_req_data]),
+              ],
+              ignore_index=True,
+          )
+          save_request_database(st.session_state["request_db"])
+          st.success(f"Berhasil! Usulan request konten kategori **{req_kategori}** berhasil disimpan.")
+          st.rerun()
+        else:
+          st.warning("Mohon isi Judul Usulan dan minimal pilih satu Tipe Konten.")
+
+  with tab_req_list:
+    st.markdown("### Rekapan Data Request Konten")
+    
+    # Tombol Refresh Request
+    if st.button("🔄 Refresh Data Request"):
+      st.session_state["request_db"] = load_request_database()
+      st.success("Data request berhasil diperbarui!")
+      st.rerun()
+
+    req_df = st.session_state["request_db"]
+
+    if req_df.empty:
+      st.info("Belum ada data request konten yang dimasukkan.")
+    else:
+      # Filter Kategori (PAS / PTD / Semua)
+      filter_kat_req = st.selectbox("Filter Berdasarkan Kategori", ["Semua", "PAS", "PTD"], key="f_kat_req")
+      
+      filtered_req = req_df.copy()
+      if filter_kat_req != "Semua":
+        filtered_req = filtered_req[filtered_req["Kategori"] == filter_kat_req]
+
+      if filtered_req.empty:
+        st.warning(f"Tidak ada request untuk kategori {filter_kat_req}.")
+      else:
+        for idx, r_row in filtered_req.iterrows():
+          t_str = (
+              ", ".join(r_row["Tipe Konten"])
+              if isinstance(r_row["Tipe Konten"], list)
+              else str(r_row["Tipe Konten"])
+          )
+          
+          with st.container(border=True):
+            rc_col1, rc_col2, rc_col3, rc_col4 = st.columns([2, 1.2, 1.2, 1])
+            with rc_col1:
+              st.markdown(f"📌 **[{r_row['Kategori']}] {r_row['Judul Request']}**")
+              st.caption(f"Platform: {r_row['Platform']} | Format: {t_str} | Diajukan oleh: **{r_row['Pengaju']}**")
+            with rc_col2:
+              st.markdown("📋 **Status:**")
+              st.write(f"` {r_row['Status Request']} `")
+            with rc_col3:
+              st.markdown("🔗 **Referensi:**")
+              if r_row["Link Referensi"] and r_row["Link Referensi"] != "-":
+                st.markdown(f"[Buka Link]({r_row['Link Referensi']})")
+              else:
+                st.write("-")
+            with rc_col4:
+              st.markdown("⚡ **Aksi:**")
+              if st.button("🗑️ Hapus", key=f"del_req_{r_row['ID']}"):
+                st.session_state["request_db"] = st.session_state["request_db"][
+                    st.session_state["request_db"]["ID"] != r_row["ID"]
+                ]
+                save_request_database(st.session_state["request_db"])
+                st.success("Request berhasil dihapus!")
+                st.rerun()
+
+            if r_row["Catatan"] and r_row["Catatan"] != "-":
+              with st.expander("📝 Lihat Detail / Catatan Request"):
+                st.info(r_row["Catatan"])
+
+# ==========================================
 # MENU: APPROVAL KONTEN PAS
 # ==========================================
 elif menu == "👔 Approval Konten PAS":
@@ -931,12 +1141,12 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     daftar_tim = {
         "Pak Reza": "6281321686233",
-                "Bu Emma": "628175731188",
-                "Pak Gilang": "6281809830066",
-                "Surya": "6281945678904",
-                "Bu Laras": "628118490786",
-                "Sani": "6288295775828",
-                "Pa Fian": "6281383473644",
+        "Bu Emma": "628175731188",
+        "Pak Gilang": "6281809830066",
+        "Surya": "6281945678904",
+        "Bu Laras": "628118490786",
+        "Sani": "6288295775828",
+        "Pa Fian": "6281383473644",
     }
 
     pilihan_admin = st.selectbox(
