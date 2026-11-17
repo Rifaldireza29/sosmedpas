@@ -51,6 +51,7 @@ def load_database():
           ]
       )
     else:
+      # Pastikan kolom-kolom penting ada (mencegah KeyError jika data lama di sheets belum punya)
       if "Kategori" not in df.columns:
         df.insert(1, "Kategori", "PAS")
       if "Approved By" not in df.columns:
@@ -121,7 +122,6 @@ if not st.session_state["logged_in"]:
       st.subheader("🔐 Login Aplikasi Sosmed PAS & PTD")
       st.markdown("Silakan masukkan nama dan password Anda untuk masuk.")
 
-      # Daftar 5 User dengan Password masing-masing (bisa diubah sesuai keinginan)
       user_credentials = {
           "SURYA": "surya123",
           "SANI": "sani123",
@@ -142,7 +142,6 @@ if not st.session_state["logged_in"]:
         else:
           st.error("Password salah! Silakan coba lagi.")
   
-  # Hentikan eksekusi di bawah jika belum login
   st.stop()
 
 
@@ -269,7 +268,8 @@ def render_content_table(kategori_pilih):
 
           with c1:
             st.markdown(f"📌 **{no}. {row['Judul Konten']}**")
-            app_by_info = f" | Approved by: {row['Approved By']}" if row.get('Approved By') and row['Approved By'] != '-' else ""
+            app_by_val = row.get('Approved By', '-')
+            app_by_info = f" | Approved by: {app_by_val}" if app_by_val and app_by_val != '-' else ""
             st.caption(f"Platform: {row['Platform']} | Tipe: {tipe_str}{app_by_info}")
 
           with c2:
@@ -582,7 +582,6 @@ def render_approval_panel(kategori_approval):
               if st.button(
                   "✅", key=f"app_{row['ID']}", help="Setujui (Approve)"
               ):
-                # Catat user yang melakukan approval
                 db_idx = st.session_state["content_db"][
                     st.session_state["content_db"]["ID"] == row["ID"]
                 ].index
@@ -610,7 +609,7 @@ def render_approval_panel(kategori_approval):
                 "Bu Emma": "628175731188",
                 "Pak Gilang": "6281809830066",
                 "Surya": "6281945678904",
-                "Bu Laras": "6280000000000",  # Silakan edit nomor Bu Laras di sini
+                "Bu Laras": "6280000000000",
             }
             pilih_penerima = st.selectbox(
                 "Pilih Kontak Penerima WA:",
@@ -663,9 +662,8 @@ def render_approval_panel(kategori_approval):
             )
 
     st.markdown(f"### 📜 Riwayat Approval {kategori_approval}")
-    history_approval = df[
-        ["Judul Konten", "Platform", "Jadwal Upload", "Approval", "Approved By"]
-    ].copy()
+    cols_to_show = [c for c in ["Judul Konten", "Platform", "Jadwal Upload", "Approval", "Approved By"] if c in df.columns]
+    history_approval = df[cols_to_show].copy()
     if not history_approval.empty:
       history_approval = history_approval.sort_values(
           by="Jadwal Upload", ascending=False
@@ -897,20 +895,10 @@ elif menu == "🔔 Pusat Notifikasi & History":
       history_display["Tipe Konten"] = history_display["Tipe Konten"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else str(x)
       )
+      
+      cols_history_show = [c for c in ["Kategori", "Judul Konten", "Platform", "Tipe Konten", "Approval", "Approved By", "Status", "Jadwal Upload", "Catatan"] if c in history_display.columns]
       st.dataframe(
-          history_display[
-              [
-                  "Kategori",
-                  "Judul Konten",
-                  "Platform",
-                  "Tipe Konten",
-                  "Approval",
-                  "Approved By",
-                  "Status",
-                  "Jadwal Upload",
-                  "Catatan",
-              ]
-          ],
+          history_display[cols_history_show],
           use_container_width=True,
           hide_index=True,
       )
@@ -943,7 +931,7 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
         "Bu Emma": "628175731188",
         "Pak Gilang": "6281809830066",
         "Surya": "6281945678904",
-        "Bu Laras": "6280000000000",  # Silakan edit nomor WhatsApp Bu Laras di sini
+        "Bu Laras": "6280000000000",
     }
 
     pilihan_admin = st.selectbox(
