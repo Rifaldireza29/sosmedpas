@@ -108,7 +108,7 @@ st.markdown(
     " Direksi (Terhubung ke Google Sheets)."
 )
 
-# Sidebar untuk Navigasi Menu dengan pemisahan PAS & PTD di Daftar Konten
+# Sidebar untuk Navigasi Menu
 st.sidebar.title("📌 Navigasi Menu")
 menu = st.sidebar.radio(
     "Pilih Menu:",
@@ -141,9 +141,14 @@ def render_content_table(kategori_pilih):
 
   df = st.session_state["content_db"]
 
-  # Filter berdasarkan kategori (PAS atau PTD)
+  # Filter berdasarkan kategori dengan penanganan data lama
   if not df.empty and "Kategori" in df.columns:
-    df = df[df["Kategori"] == kategori_pilih]
+    if kategori_pilih == "PAS":
+      # Tab PAS menampilkan yang ber Kategori "PAS" atau kosong/belum diisi (data lama)
+      df = df[(df["Kategori"] == "PAS") | (df["Kategori"] == "") | (df["Kategori"].isna())]
+    else:
+      # Tab PTD HANYA menampilkan yang benar-benar ber Kategori "PTD"
+      df = df[df["Kategori"] == "PTD"]
 
   if df.empty:
     st.info(
@@ -310,7 +315,7 @@ def render_content_table(kategori_pilih):
             edit_kategori = st.selectbox(
                 "Pilih Kategori",
                 ["PAS", "PTD"],
-                index=0 if r_data.get("Kategori", "PAS") == "PAS" else 1,
+                index=0 if r_data.get("Kategori", "PAS") in ["PAS", ""] or pd.isna(r_data.get("Kategori")) else 1,
             )
             edit_judul = st.text_input(
                 "Judul / Tema Konten", value=r_data["Judul Konten"]
@@ -561,6 +566,8 @@ elif menu == "👔 Approval Direksi":
             else str(row["Tipe Konten"])
         )
         kat_label = row.get("Kategori", "PAS")
+        if not kat_label or kat_label == "":
+          kat_label = "PAS"
 
         with st.container(border=True):
           c1, c2, c3, c4, c5 = st.columns([1.8, 1.1, 1.1, 1, 1.5])
@@ -754,6 +761,8 @@ elif menu == "🔔 Pusat Notifikasi & History":
                 else str(row["Tipe Konten"])
             )
             kat_label = row.get("Kategori", "PAS")
+            if not kat_label or kat_label == "":
+              kat_label = "PAS"
 
             if total_detik > 0:
               jam_cd = int(total_detik // 3600)
@@ -877,10 +886,13 @@ elif menu == "⏰ Kirim WhatsApp Reminder":
 
     tipe_str = (
         ", ".join(selected_row["Tipe Konten"])
-        if isinstance(selected_row["Tipe Konten"], list)
+        if isinstance(selected_row["Tippy Konten"] if "Tippy Konten" in selected_row else selected_row["Tipe Konten"], list)
         else str(selected_row["Tipe Konten"])
     )
     kat_label = selected_row.get("Kategori", "PAS")
+    if not kat_label or kat_label == "":
+      kat_label = "PAS"
+
     pesan_wa = (
         f"Halo! Reminder nih, konten sosial media *[{kat_label}] {selected_row['Judul Konten']}* "
         f"dengan format ({tipe_str}) harus naik ke {selected_row['Platform']} "
