@@ -872,7 +872,8 @@ elif menu == "📥 Daftar Request Konten":
   st.subheader("📥 Daftar & Form Request Konten Baru (PAS & PTD)")
   st.markdown("Menu khusus untuk mengajukan atau merekap usulan/ide request konten baru tanpa masuk ke jadwal utama.")
 
-  tab_req_list, tab_req_form = st.tabs(["📋 Rekapan Request Konten", "➕ Buat Request Baru"])
+  # Urutan dibalik: Buat Request Baru di kiri, Rekapan di kanan
+  tab_req_form, tab_req_list = st.tabs(["➕ Buat Request Baru", "📋 Rekapan Request Konten"])
 
   with tab_req_form:
     st.markdown("### Form Pengajuan Request Konten")
