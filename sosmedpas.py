@@ -250,7 +250,6 @@ available_menus = []
 if active_user in ["LARAS", "FIAN"]:
   available_menus = [
       "📋 Daftar Konten PTD",
-      "➕ Tambah Konten Baru",
       "📥 Daftar Request Konten",
       "👔 Approval Konten PTD",
   ]
@@ -258,7 +257,6 @@ elif active_user in ["REZA", "GILANG"]:
   available_menus = [
       "📋 Daftar Konten PAS",
       "📋 Daftar Konten PTD",
-      "➕ Tambah Konten Baru",
       "📥 Daftar Request Konten",
       "👔 Approval Konten PAS",
       "👔 Approval Konten PTD",
@@ -266,7 +264,6 @@ elif active_user in ["REZA", "GILANG"]:
 elif active_user == "EMMA":
   available_menus = [
       "📋 Daftar Konten PAS",
-      "➕ Tambah Konten Baru",
       "📥 Daftar Request Konten",
       "👔 Approval Konten PAS",
   ]
